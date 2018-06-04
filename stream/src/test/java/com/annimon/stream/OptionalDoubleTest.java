@@ -6,6 +6,7 @@ import com.annimon.stream.function.DoubleSupplier;
 import com.annimon.stream.function.DoubleToIntFunction;
 import com.annimon.stream.function.DoubleToLongFunction;
 import com.annimon.stream.function.DoubleUnaryOperator;
+import com.annimon.stream.function.Function;
 import com.annimon.stream.function.Supplier;
 import com.annimon.stream.test.hamcrest.OptionalMatcher;
 import java.util.NoSuchElementException;
@@ -13,13 +14,9 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalDoubleMatcher.hasValueThat;
 import static com.annimon.stream.test.hamcrest.OptionalDoubleMatcher.isEmpty;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.closeTo;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 /**
  * Tests for {@link OptionalDouble}
@@ -30,6 +27,16 @@ public class OptionalDoubleTest {
     public void testGetWithPresentValue() {
         double value = OptionalDouble.of(10.123).getAsDouble();
         assertThat(value, closeTo(10.123, 0.0001));
+    }
+
+    @Test
+    public void testOfNullableWithPresentValue() {
+        assertThat(OptionalDouble.ofNullable(10.123), hasValueThat(closeTo(10.123, 0.0001)));
+    }
+
+    @Test
+    public void testOfNullableWithAbsentValue() {
+        assertThat(OptionalDouble.ofNullable(null), isEmpty());
     }
 
     @Test(expected = NoSuchElementException.class)
@@ -181,6 +188,37 @@ public class OptionalDoubleTest {
     }
 
     @Test
+    public void testCustomIntermediate() {
+        OptionalDouble result = OptionalDouble.of(10)
+                .custom(new Function<OptionalDouble, OptionalDouble>() {
+                    @Override
+                    public OptionalDouble apply(OptionalDouble optional) {
+                        return optional.filter(Functions.greaterThan(Math.PI));
+                    }
+                });
+
+        assertThat(result, hasValueThat(closeTo(10, 0.0001)));
+    }
+
+    @Test
+    public void testCustomTerminal() {
+        Double result = OptionalDouble.empty()
+                .custom(new Function<OptionalDouble, Double>() {
+                    @Override
+                    public Double apply(OptionalDouble optional) {
+                        return optional.orElse(0);
+                    }
+                });
+
+        assertThat(result, closeTo(0, 0.0001));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testCustomException() {
+        OptionalDouble.empty().custom(null);
+    }
+
+    @Test
     public void testFilter() {
         OptionalDouble result;
         result = OptionalDouble.of(10d)
@@ -193,6 +231,22 @@ public class OptionalDoubleTest {
 
         result = OptionalDouble.of(1.19)
                 .filter(Functions.greaterThan(Math.PI));
+        assertThat(result, isEmpty());
+    }
+
+    @Test
+    public void testFilterNot() {
+        OptionalDouble result;
+        result = OptionalDouble.of(1.19)
+                .filterNot(Functions.greaterThan(Math.PI));
+        assertThat(result, hasValueThat(closeTo(1.19, 0.000001)));
+
+        result = OptionalDouble.empty()
+                .filterNot(Functions.greaterThan(Math.PI));
+        assertThat(result, isEmpty());
+
+        result = OptionalDouble.of(10d)
+                .filterNot(Functions.greaterThan(Math.PI));
         assertThat(result, isEmpty());
     }
 
@@ -345,6 +399,17 @@ public class OptionalDoubleTest {
     }
 
     @Test
+    public void testOrElseThrowWithPresentValue() {
+        double value = OptionalDouble.of(10.123).orElseThrow();
+        assertThat(value, closeTo(10.123, 0.0001));
+    }
+
+    @Test(expected = NoSuchElementException.class)
+    public void testOrElseThrowOnEmptyOptional() {
+        OptionalDouble.empty().orElseThrow();
+    }
+
+    @Test
     public void testOrElseThrow() {
         try {
             assertThat(OptionalDouble.of(10.123).orElseThrow(new Supplier<NoSuchElementException>() {
@@ -372,12 +437,12 @@ public class OptionalDoubleTest {
     @Test
     public void testEquals() {
         assertEquals(OptionalDouble.empty(), OptionalDouble.empty());
-        assertFalse(OptionalDouble.empty().equals(Optional.empty()));
+        assertNotEquals(OptionalDouble.empty(), Optional.empty());
 
         assertEquals(OptionalDouble.of(Math.PI), OptionalDouble.of(Math.PI));
 
-        assertFalse(OptionalDouble.of(41d).equals(OptionalDouble.of(42d)));
-        assertFalse(OptionalDouble.of(0d).equals(OptionalDouble.empty()));
+        assertNotEquals(OptionalDouble.of(41d), OptionalDouble.of(42d));
+        assertNotEquals(OptionalDouble.of(0d), OptionalDouble.empty());
     }
 
     @Test

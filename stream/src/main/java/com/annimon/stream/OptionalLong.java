@@ -1,5 +1,6 @@
 package com.annimon.stream;
 
+import com.annimon.stream.function.Function;
 import com.annimon.stream.function.LongConsumer;
 import com.annimon.stream.function.LongFunction;
 import com.annimon.stream.function.LongPredicate;
@@ -39,6 +40,16 @@ public final class OptionalLong {
         return new OptionalLong(value);
     }
 
+    /**
+     * Returns an {@code OptionalLong} with the specified value, or empty {@code OptionalLong} if value is null.
+     *
+     * @param value the value which can be null
+     * @return an {@code OptionalLong}
+     * @since 1.2.1
+     */
+    public static OptionalLong ofNullable(Long value) {
+        return value == null ? EMPTY : new OptionalLong(value);
+    }
 
     private final boolean isPresent;
     private final long value;
@@ -56,15 +67,15 @@ public final class OptionalLong {
     /**
      * Returns an inner value if present, otherwise throws {@code NoSuchElementException}.
      *
+     * Since 1.2.0 prefer {@link #orElseThrow()} method as it has readable name.
+     *
      * @return the inner value of this {@code OptionalLong}
      * @throws NoSuchElementException if there is no value present
      * @see OptionalLong#isPresent()
+     * @see #orElseThrow()
      */
     public long getAsLong() {
-        if (!isPresent) {
-            throw new NoSuchElementException("No value present");
-        }
-        return value;
+        return orElseThrow();
     }
 
     /**
@@ -132,7 +143,21 @@ public final class OptionalLong {
     }
 
     /**
-     * Performs filtering on inner value if present.
+     * Applies custom operator on {@code OptionalLong}.
+     *
+     * @param <R> the type of the result
+     * @param function  a transforming function
+     * @return a result of the transforming function
+     * @throws NullPointerException if {@code function} is null
+     * @since 1.1.9
+     */
+    public <R> R custom(Function<OptionalLong, R> function) {
+        Objects.requireNonNull(function);
+        return function.apply(this);
+    }
+
+    /**
+     * Performs filtering on inner value if it is present.
      *
      * @param predicate  a predicate function
      * @return this {@code OptionalLong} if the value is present and matches predicate,
@@ -141,6 +166,18 @@ public final class OptionalLong {
     public OptionalLong filter(LongPredicate predicate) {
         if (!isPresent()) return this;
         return predicate.test(value) ? this : OptionalLong.empty();
+    }
+
+    /**
+     * Performs negated filtering on inner value if it is present.
+     *
+     * @param predicate  a predicate function
+     * @return this {@code OptionalLong} if the value is present and doesn't matches predicate,
+     *              otherwise an empty {@code OptionalLong}
+     * @since 1.1.9
+     */
+    public OptionalLong filterNot(LongPredicate predicate) {
+        return filter(LongPredicate.Util.negate(predicate));
     }
 
     /**
@@ -243,6 +280,20 @@ public final class OptionalLong {
      */
     public long orElseGet(LongSupplier other) {
         return isPresent ? value : other.getAsLong();
+    }
+
+    /**
+     * Returns inner value if present, otherwise throws {@code NoSuchElementException}.
+     *
+     * @return inner value if present
+     * @throws NoSuchElementException if inner value is not present
+     * @since 1.2.0
+     */
+    public long orElseThrow() {
+        if (!isPresent) {
+            throw new NoSuchElementException("No value present");
+        }
+        return value;
     }
 
     /**

@@ -1,23 +1,27 @@
 package com.annimon.stream;
 
 import com.annimon.stream.function.*;
+import com.annimon.stream.internal.Compose;
+import com.annimon.stream.internal.Operators;
+import com.annimon.stream.internal.Params;
+import com.annimon.stream.iterator.IndexedIterator;
+import com.annimon.stream.iterator.LazyIterator;
+import com.annimon.stream.operator.*;
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Queue;
-import java.util.Set;
 
 /**
  * A sequence of elements supporting aggregate operations.
  *
  * @param <T> the type of the stream elements
  */
-public final class Stream<T> {
+public class Stream<T> implements Closeable {
 
     /**
      * Returns an empty stream.
@@ -79,20 +83,10 @@ public final class Stream<T> {
      */
     public static <T> Stream<T> of(final T... elements) {
         Objects.requireNonNull(elements);
-        return new Stream<T>(new LsaIterator<T>() {
-
-            private int index = 0;
-
-            @Override
-            public boolean hasNext() {
-                return index < elements.length;
-            }
-
-            @Override
-            public T nextIteration() {
-                return elements[index++];
-            }
-        });
+        if (elements.length == 0) {
+            return Stream.<T>empty();
+        }
+        return new Stream<T>(new ObjArray<T>(elements));
     }
 
     /**
@@ -104,8 +98,49 @@ public final class Stream<T> {
      * @return the new stream
      * @since 1.1.5
      */
+    @SuppressWarnings("unchecked")
     public static <T> Stream<T> ofNullable(T element) {
         return (element == null) ? Stream.<T>empty() : Stream.of(element);
+    }
+
+    /**
+     * If specified array is null, returns an empty {@code Stream},
+     * otherwise returns a {@code Stream} containing elements of this array.
+     *
+     * @param <T> the type of the stream elements
+     * @param array  the array whose elements to be passed to stream
+     * @return the new stream
+     * @since 1.1.9
+     */
+    public static <T> Stream<T> ofNullable(final T[] array) {
+        return (array == null) ? Stream.<T>empty() : Stream.of(array);
+    }
+
+    /**
+     * If specified map is null, returns an empty {@code Stream},
+     * otherwise returns a {@code Stream} containing entries of this map.
+     *
+     * @param <K> the type of map keys
+     * @param <V> the type of map values
+     * @param map  the map with elements to be passed to stream
+     * @return the new stream
+     * @since 1.1.9
+     */
+    public static <K, V> Stream<Map.Entry<K, V>> ofNullable(Map<K, V> map) {
+        return (map == null) ? Stream.<Map.Entry<K, V>>empty() : Stream.of(map);
+    }
+
+    /**
+     * If specified iterator is null, returns an empty {@code Stream},
+     * otherwise returns a {@code Stream} containing entries of this iterator.
+     *
+     * @param <T> the type of the stream elements
+     * @param iterator  the iterator with elements to be passed to stream
+     * @return the new stream
+     * @since 1.1.9
+     */
+    public static <T> Stream<T> ofNullable(Iterator<? extends T> iterator) {
+        return (iterator == null) ? Stream.<T>empty() : Stream.of(iterator);
     }
 
     /**
@@ -118,7 +153,7 @@ public final class Stream<T> {
      * @since 1.1.5
      */
     public static <T> Stream<T> ofNullable(Iterable<? extends T> iterable) {
-        return (iterable == null) ? Stream.<T>empty() : Stream.<T>of(iterable);
+        return (iterable == null) ? Stream.<T>empty() : Stream.of(iterable);
     }
 
     /**
@@ -135,20 +170,6 @@ public final class Stream<T> {
     }
 
     /**
-     * Creates a {@code Stream<Integer>} from not closed range
-     * (from {@code from} inclusive to {@code to} exclusive and incremental step {@code 1}).
-     *
-     * @param from  the initial value (inclusive)
-     * @param to  the upper bound (exclusive)
-     * @deprecated  As of release 1.0.7, replaced by {@link #range(int, int)}
-     * @return the new stream
-     */
-    @Deprecated
-    public static Stream<Integer> ofRange(final int from, final int to) {
-        return range(from, to);
-    }
-
-    /**
      * Creates a {@code Stream<Long>} from not closed range
      * (from {@code from} inclusive to {@code to} exclusive and incremental step {@code 1}).
      *
@@ -158,20 +179,6 @@ public final class Stream<T> {
      */
     public static Stream<Long> range(final long from, final long to) {
         return LongStream.range(from, to).boxed();
-    }
-
-    /**
-     * Creates a {@code Stream<Long>} from not closed range
-     * (from {@code from} inclusive to {@code to} exclusive and incremental step {@code 1}).
-     *
-     * @param from  the initial value (inclusive)
-     * @param to  the upper bound (exclusive)
-     * @deprecated  As of release 1.0.7, replaced by {@link #range(long, long)}
-     * @return the new stream
-     */
-    @Deprecated
-    public static Stream<Long> ofRange(final long from, final long to) {
-        return range(from, to);
     }
 
     /**
@@ -188,20 +195,6 @@ public final class Stream<T> {
     }
 
     /**
-     * Creates a {@code Stream<Integer>} from closed range
-     * (from {@code from} inclusive to {@code to} inclusive and incremental step {@code 1}).
-     *
-     * @param from  the initial value (inclusive)
-     * @param to  the upper bound (inclusive)
-     * @deprecated  As of release 1.0.7, replaced by {@link #rangeClosed(int, int)}
-     * @return the new stream
-     */
-    @Deprecated
-    public static Stream<Integer> ofRangeClosed(final int from, final int to) {
-        return rangeClosed(from, to);
-    }
-
-    /**
      * Creates a {@code Stream<Long>} from closed range
      * (from {@code from} inclusive to {@code to} inclusive and incremental step {@code 1}).
      *
@@ -214,20 +207,6 @@ public final class Stream<T> {
     }
 
     /**
-     * Creates a {@code Stream<Long>} from closed range
-     * (from {@code from} inclusive to {@code to} inclusive and incremental step {@code 1}).
-     *
-     * @param from  the initial value (inclusive)
-     * @param to  the upper bound (inclusive)
-     * @deprecated  As of release 1.0.7, replaced by {@link #rangeClosed(long, long)}
-     * @return the new stream
-     */
-    @Deprecated
-    public static Stream<Long> ofRangeClosed(final long from, final long to) {
-        return rangeClosed(from, to);
-    }
-
-    /**
      * Creates a {@code Stream} by elements that generated by {@code Supplier}.
      *
      * @param <T> the type of the stream elements
@@ -237,18 +216,7 @@ public final class Stream<T> {
      */
     public static <T> Stream<T> generate(final Supplier<T> supplier) {
         Objects.requireNonNull(supplier);
-        return new Stream<T>(new LsaIterator<T>() {
-
-            @Override
-            public boolean hasNext() {
-                return true;
-            }
-
-            @Override
-            public T nextIteration() {
-                return supplier.get();
-            }
-        });
+        return new Stream<T>(new ObjGenerate<T>(supplier));
     }
 
     /**
@@ -271,27 +239,7 @@ public final class Stream<T> {
      */
     public static <T> Stream<T> iterate(final T seed, final UnaryOperator<T> op) {
         Objects.requireNonNull(op);
-        return new Stream<T>(new LsaIterator<T>() {
-
-            private boolean firstRun = true;
-            private T t;
-
-            @Override
-            public boolean hasNext() {
-                return true;
-            }
-
-            @Override
-            public T nextIteration() {
-                if (firstRun) {
-                    firstRun = false;
-                    t = seed;
-                } else {
-                    t = op.apply(t);
-                }
-                return t;
-            }
-        });
+        return new Stream<T>(new ObjIterate<T>(seed, op));
     }
 
     /**
@@ -339,25 +287,31 @@ public final class Stream<T> {
     public static <T> Stream<T> concat(Stream<? extends T> stream1, Stream<? extends T> stream2) {
         Objects.requireNonNull(stream1);
         Objects.requireNonNull(stream2);
-        final Iterator<? extends T> it1 = stream1.iterator;
-        final Iterator<? extends T> it2 = stream2.iterator;
-        return new Stream<T>(new LsaExtIterator<T>() {
+        Stream<T> result = new Stream<T>(new ObjConcat<T>(stream1.iterator, stream2.iterator));
+        return result.onClose(Compose.closeables(stream1, stream2));
+    }
 
-            @Override
-            protected void nextIteration() {
-                if (it1.hasNext()) {
-                    next = it1.next();
-                    hasNext = true;
-                    return;
-                }
-                if (it2.hasNext()) {
-                    next = it2.next();
-                    hasNext = true;
-                    return;
-                }
-                hasNext = false;
-            }
-        });
+    /**
+     * Concatenates two iterators to a stream.
+     *
+     * <p>Example:
+     * <pre>
+     * iterator 1: [1, 2, 3, 4]
+     * iterator 2: [5, 6]
+     * result:     [1, 2, 3, 4, 5, 6]
+     * </pre>
+     *
+     * @param <T> The type of iterator elements
+     * @param iterator1  the first iterator
+     * @param iterator2  the second iterator
+     * @return the new stream
+     * @throws NullPointerException if {@code iterator1} or {@code iterator2} is null
+     * @since 1.1.9
+     */
+    public static <T> Stream<T> concat(Iterator<? extends T> iterator1, Iterator<? extends T> iterator2) {
+        Objects.requireNonNull(iterator1);
+        Objects.requireNonNull(iterator2);
+        return new Stream<T>(new ObjConcat<T>(iterator1, iterator2));
     }
 
     /**
@@ -384,7 +338,7 @@ public final class Stream<T> {
             final BiFunction<? super F, ? super S, ? extends R> combiner) {
         Objects.requireNonNull(stream1);
         Objects.requireNonNull(stream2);
-        return zip(stream1.iterator, stream2.iterator, combiner);
+        return Stream.<F, S, R>zip(stream1.iterator, stream2.iterator, combiner);
     }
 
     /**
@@ -413,43 +367,99 @@ public final class Stream<T> {
             final BiFunction<? super F, ? super S, ? extends R> combiner) {
         Objects.requireNonNull(iterator1);
         Objects.requireNonNull(iterator2);
-        return new Stream<R>(new LsaIterator<R>() {
-            @Override
-            public boolean hasNext() {
-                return iterator1.hasNext() && iterator2.hasNext();
-            }
+        return new Stream<R>(new ObjZip<F, S, R>(iterator1, iterator2, combiner));
+    }
 
-            @Override
-            public R nextIteration() {
-                return combiner.apply(iterator1.next(), iterator2.next());
-            }
-        });
+    /**
+     * Merges elements of two streams according to the supplied selector function.
+     *
+     * <p>Example 1 — Merge two sorted streams:
+     * <pre>
+     * stream1: [1, 3, 8, 10]
+     * stream2: [2, 5, 6, 12]
+     * selector: (a, b) -&gt; a &lt; b ? TAKE_FIRST : TAKE_SECOND
+     * result: [1, 2, 3, 5, 6, 8, 10, 12]
+     * </pre>
+     *
+     * <p>Example 2 — Concat two streams:
+     * <pre>
+     * stream1: [0, 3, 1]
+     * stream2: [2, 5, 6, 1]
+     * selector: (a, b) -&gt; TAKE_SECOND
+     * result: [2, 5, 6, 1, 0, 3, 1]
+     * </pre>
+     *
+     * @param <T> the type of the elements
+     * @param stream1  the first stream
+     * @param stream2  the second stream
+     * @param selector the selector function used to choose elements
+     * @return the new stream
+     * @throws NullPointerException if {@code stream1} or {@code stream2} is null
+     * @since 1.1.9
+     */
+    public static <T> Stream<T> merge(
+            Stream<? extends T> stream1, Stream<? extends T> stream2,
+            BiFunction<? super T, ? super T, ObjMerge.MergeResult> selector) {
+        Objects.requireNonNull(stream1);
+        Objects.requireNonNull(stream2);
+        return Stream.<T>merge(stream1.iterator, stream2.iterator, selector);
+    }
+
+    /**
+     * Merges elements of two iterators according to the supplied selector function.
+     *
+     * <p>Example 1 — Merge two sorted iterators:
+     * <pre>
+     * iterator1: [1, 3, 8, 10]
+     * iterator2: [2, 5, 6, 12]
+     * selector: (a, b) -&gt; a &lt; b ? TAKE_FIRST : TAKE_SECOND
+     * result: [1, 2, 3, 5, 6, 8, 10, 12]
+     * </pre>
+     *
+     * <p>Example 2 — Concat two iterators:
+     * <pre>
+     * iterator1: [0, 3, 1]
+     * iterator2: [2, 5, 6, 1]
+     * selector: (a, b) -&gt; TAKE_SECOND
+     * result: [2, 5, 6, 1, 0, 3, 1]
+     * </pre>
+     *
+     * @param <T> the type of the elements
+     * @param iterator1  the first iterator
+     * @param iterator2  the second iterator
+     * @param selector  the selector function used to choose elements
+     * @return the new stream
+     * @throws NullPointerException if {@code iterator1} or {@code iterator2} is null
+     * @since 1.1.9
+     */
+    public static <T> Stream<T> merge(
+            Iterator<? extends T> iterator1, Iterator<? extends T> iterator2,
+            BiFunction<? super T, ? super T, ObjMerge.MergeResult> selector) {
+        Objects.requireNonNull(iterator1);
+        Objects.requireNonNull(iterator2);
+        return new Stream<T>(new ObjMerge<T>(iterator1, iterator2, selector));
     }
 
 
 //<editor-fold defaultstate="collapsed" desc="Implementation">
-    static final long MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-    static final String BAD_SIZE = "Stream size exceeds max array size";
-
     private final Iterator<? extends T> iterator;
+    private final Params params;
 
     private Stream(Iterator<? extends T> iterator) {
-        this.iterator = iterator;
+        this(null, iterator);
     }
 
     private Stream(Iterable<? extends T> iterable) {
-        this(new LazyIterator<T>(iterable));
+        this(null, new LazyIterator<T>(iterable));
     }
 
-    /**
-     * Returns internal stream iterator.
-     *
-     * @deprecated  As of release 1.1.1, replaced by {@link #iterator()}
-     * @return internal stream iterator
-     */
-    @Deprecated
-    public Iterator<? extends T> getIterator() {
-        return iterator;
+    private Stream(Params params, Iterable<? extends T> iterable) {
+        this(params, new LazyIterator<T>(iterable));
+    }
+
+    Stream(Params params, Iterator<? extends T> iterator) {
+        this.params = params;
+        this.iterator = iterator;
     }
 
     /**
@@ -538,70 +548,59 @@ public final class Stream<T> {
      * @return the new stream
      */
     public Stream<T> filter(final Predicate<? super T> predicate) {
-        return new Stream<T>(new Iterator<T>() {
-
-            private boolean hasNext, hasNextEvaluated;
-            private T next;
-
-            @Override
-            public boolean hasNext() {
-                if (!hasNextEvaluated) {
-                    nextIteration();
-                    hasNextEvaluated = true;
-                }
-                return hasNext;
-            }
-
-            @Override
-            public T next() {
-                if (!hasNextEvaluated) {
-                    hasNext = hasNext();
-                }
-                if (!hasNext) {
-                    throw new NoSuchElementException();
-                }
-                hasNextEvaluated = false;
-                return next;
-            }
-
-            private void nextIteration() {
-                while (iterator.hasNext()) {
-                    next = iterator.next();
-                    if (predicate.test(next)) {
-                        hasNext = true;
-                        return;
-                    }
-                }
-                hasNext = false;
-            }
-
-            @Override
-            public void remove() {
-                throw new UnsupportedOperationException("remove not supported");
-            }
-        });
+        return new Stream<T>(params, new ObjFilter<T>(iterator, predicate));
     }
 
     /**
-     * Returns {@code Stream} with elements that is not null only.
+     * Returns a {@code Stream} with elements that satisfy the given {@code IndexedPredicate}.
      *
      * <p>This is an intermediate operation.
      *
+     * <p>Example:
+     * <pre>
+     * predicate: (index, value) -&gt; (index + value) &gt; 6
+     * stream: [1, 2, 3, 4, 0, 11]
+     * index:  [0, 1, 2, 3, 4,  5]
+     * sum:    [1, 3, 5, 7, 4, 16]
+     * filter: [         7,    16]
+     * result: [4, 11]
+     * </pre>
+     *
+     * @param predicate  the {@code IndexedPredicate} used to filter elements
      * @return the new stream
+     * @since 1.1.6
      */
-    public Stream<T> notNull() {
-        return filterNot(Predicate.Util.<T>nulls());
+    public Stream<T> filterIndexed(IndexedPredicate<? super T> predicate) {
+        return filterIndexed(0, 1, predicate);
     }
 
     /**
-     * Returns {@code Stream} with elements that is null only.
+     * Returns a {@code Stream} with elements that satisfy the given {@code IndexedPredicate}.
      *
      * <p>This is an intermediate operation.
      *
+     * <p>Example:
+     * <pre>
+     * from: 4
+     * step: 3
+     * predicate: (index, value) -&gt; (index + value) &gt; 15
+     * stream: [1, 2,  3,  4,  0, 11]
+     * index:  [4, 7, 10, 13, 16, 19]
+     * sum:    [5, 9, 13, 17, 16, 30]
+     * filter: [          17, 16, 30]
+     * result: [4, 0, 11]
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param predicate  the {@code IndexedPredicate} used to filter elements
      * @return the new stream
+     * @since 1.1.6
      */
-    public Stream<T> nullsOnly() {
-        return filter(Predicate.Util.<T>nulls());
+    public Stream<T> filterIndexed(int from, int step, IndexedPredicate<? super T> predicate) {
+        return new Stream<T>(params, new ObjFilterIndexed<T>(
+                new IndexedIterator<T>(from, step, iterator),
+                predicate));
     }
 
     /**
@@ -637,6 +636,48 @@ public final class Stream<T> {
     }
 
     /**
+     * Returns {@code Stream} without null elements.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> withoutNulls() {
+        return filter(Predicate.Util.<T>notNull());
+    }
+
+    /**
+     * Returns {@code Stream} with elements that is null only.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> nullsOnly() {
+        return filterNot(Predicate.Util.<T>notNull());
+    }
+
+    /**
+     * Returns {@code Stream} with elements that is equality of {@code object} only.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param object object
+     * @return the new stream
+     * @since 1.2.0
+     */
+    public Stream<T> equalsOnly(final T object) {
+        return filter(new Predicate<T>() {
+            @Override
+            public boolean test(T value) {
+                return Objects.equals(value, object);
+            }
+        });
+    }
+
+    /**
      * Returns {@code Stream} with elements that obtained by applying the given function.
      *
      * <p>This is an intermediate operation.
@@ -653,18 +694,57 @@ public final class Stream<T> {
      * @return the new stream
      */
     public <R> Stream<R> map(final Function<? super T, ? extends R> mapper) {
-        return new Stream<R>(new LsaIterator<R>() {
+        return new Stream<R>(params, new ObjMap<T, R>(iterator, mapper));
+    }
 
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
+    /**
+     * Returns a {@code Stream} with elements that obtained by applying the given {@code IndexedFunction}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * predicate: (index, value) -&gt; (index * value)
+     * stream: [1, 2, 3,  4]
+     * index:  [0, 1, 2,  3]
+     * result: [0, 2, 6, 12]
+     * </pre>
+     *
+     * @param <R> the type of elements in resulting stream
+     * @param mapper  the mapper function used to apply to each element
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public <R> Stream<R> mapIndexed(IndexedFunction<? super T, ? extends R> mapper) {
+        return this.<R>mapIndexed(0, 1, mapper);
+    }
 
-            @Override
-            public R nextIteration() {
-                return mapper.apply(iterator.next());
-            }
-        });
+    /**
+     * Returns a {@code Stream} with elements that obtained by applying the given {@code IndexedFunction}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: -2
+     * step: 2
+     * predicate: (index, value) -&gt; (index * value)
+     * stream: [ 1, 2, 3,  4]
+     * index:  [-2, 0, 2,  4]
+     * result: [-2, 0, 6, 16]
+     * </pre>
+     *
+     * @param <R> the type of elements in resulting stream
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param mapper  the mapper function used to apply to each element
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public <R> Stream<R> mapIndexed(int from, int step, IndexedFunction<? super T, ? extends R> mapper) {
+        return new Stream<R>(params, new ObjMapIndexed<T, R>(
+                new IndexedIterator<T>(from, step, iterator),
+                mapper));
     }
 
     /**
@@ -677,18 +757,7 @@ public final class Stream<T> {
      * @see #map(com.annimon.stream.function.Function)
      */
     public IntStream mapToInt(final ToIntFunction<? super T> mapper) {
-        return IntStream.of(new PrimitiveIterator.OfInt() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public int nextInt() {
-                return mapper.applyAsInt(iterator.next());
-            }
-        });
+        return new IntStream(params, new ObjMapToInt<T>(iterator, mapper));
     }
 
     /**
@@ -702,18 +771,7 @@ public final class Stream<T> {
      * @see #map(com.annimon.stream.function.Function)
      */
     public LongStream mapToLong(final ToLongFunction<? super T> mapper) {
-        return LongStream.of(new PrimitiveIterator.OfLong() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public long nextLong() {
-                return mapper.applyAsLong(iterator.next());
-            }
-        });
+        return new LongStream(params, new ObjMapToLong<T>(iterator, mapper));
     }
 
     /**
@@ -727,18 +785,7 @@ public final class Stream<T> {
      * @see #map(com.annimon.stream.function.Function)
      */
     public DoubleStream mapToDouble(final ToDoubleFunction<? super T> mapper) {
-        return DoubleStream.of(new PrimitiveIterator.OfDouble() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public double nextDouble() {
-                return mapper.applyAsDouble(iterator.next());
-            }
-        });
+        return new DoubleStream(params, new ObjMapToDouble<T>(iterator, mapper));
     }
 
     /**
@@ -760,34 +807,7 @@ public final class Stream<T> {
      * @return the new stream
      */
     public <R> Stream<R> flatMap(final Function<? super T, ? extends Stream<? extends R>> mapper) {
-        return new Stream<R>(new LsaExtIterator<R>() {
-
-            private Iterator<? extends R> inner;
-
-            @Override
-            protected void nextIteration() {
-                if ((inner != null) && inner.hasNext()) {
-                    next = inner.next();
-                    hasNext = true;
-                    return;
-                }
-                while (iterator.hasNext()) {
-                    if (inner == null || !inner.hasNext()) {
-                        final T arg = iterator.next();
-                        final Stream <? extends R> result = mapper.apply(arg);
-                        if (result != null) {
-                            inner = result.iterator;
-                        }
-                    }
-                    if ((inner != null) && inner.hasNext()) {
-                        next = inner.next();
-                        hasNext = true;
-                        return;
-                    }
-                }
-                hasNext = false;
-            }
-        });
+        return new Stream<R>(params, new ObjFlatMap<T, R>(iterator, mapper));
     }
 
     /**
@@ -802,34 +822,7 @@ public final class Stream<T> {
      * @see #flatMap(com.annimon.stream.function.Function)
      */
     public IntStream flatMapToInt(final Function<? super T, ? extends IntStream> mapper) {
-        return IntStream.of(new PrimitiveExtIterator.OfInt() {
-
-            private PrimitiveIterator.OfInt inner;
-
-            @Override
-            protected void nextIteration() {
-                if ((inner != null) && inner.hasNext()) {
-                    next = inner.next();
-                    hasNext = true;
-                    return;
-                }
-                while (iterator.hasNext()) {
-                    if (inner == null || !inner.hasNext()) {
-                        final T arg = iterator.next();
-                        final IntStream result = mapper.apply(arg);
-                        if (result != null) {
-                            inner = result.iterator();
-                        }
-                    }
-                    if ((inner != null) && inner.hasNext()) {
-                        next = inner.next();
-                        hasNext = true;
-                        return;
-                    }
-                }
-                hasNext = false;
-            }
-        });
+        return new IntStream(params, new ObjFlatMapToInt<T>(iterator, mapper));
     }
 
     /**
@@ -844,34 +837,7 @@ public final class Stream<T> {
      * @see #flatMap(com.annimon.stream.function.Function)
      */
     public LongStream flatMapToLong(final Function<? super T, ? extends LongStream> mapper) {
-        return LongStream.of(new PrimitiveExtIterator.OfLong() {
-
-            private PrimitiveIterator.OfLong inner;
-
-            @Override
-            protected void nextIteration() {
-                if ((inner != null) && inner.hasNext()) {
-                    next = inner.next();
-                    hasNext = true;
-                    return;
-                }
-                while (iterator.hasNext()) {
-                    if (inner == null || !inner.hasNext()) {
-                        final T arg = iterator.next();
-                        final LongStream result = mapper.apply(arg);
-                        if (result != null) {
-                            inner = result.iterator();
-                        }
-                    }
-                    if ((inner != null) && inner.hasNext()) {
-                        next = inner.next();
-                        hasNext = true;
-                        return;
-                    }
-                }
-                hasNext = false;
-            }
-        });
+        return new LongStream(params, new ObjFlatMapToLong<T>(iterator, mapper));
     }
 
     /**
@@ -886,34 +852,7 @@ public final class Stream<T> {
      * @see #flatMap(com.annimon.stream.function.Function)
      */
     public DoubleStream flatMapToDouble(final Function<? super T, ? extends DoubleStream> mapper) {
-        return DoubleStream.of(new PrimitiveExtIterator.OfDouble() {
-
-            private PrimitiveIterator.OfDouble inner;
-
-            @Override
-            protected void nextIteration() {
-                if ((inner != null) && inner.hasNext()) {
-                    next = inner.next();
-                    hasNext = true;
-                    return;
-                }
-                while (iterator.hasNext()) {
-                    if (inner == null || !inner.hasNext()) {
-                        final T arg = iterator.next();
-                        final DoubleStream result = mapper.apply(arg);
-                        if (result != null) {
-                            inner = result.iterator();
-                        }
-                    }
-                    if ((inner != null) && inner.hasNext()) {
-                        next = inner.next();
-                        hasNext = true;
-                        return;
-                    }
-                }
-                hasNext = false;
-            }
-        });
+        return new DoubleStream(params, new ObjFlatMapToDouble<T>(iterator, mapper));
     }
 
     /**
@@ -953,19 +892,17 @@ public final class Stream<T> {
      * @since 1.1.2
      */
     public Stream<IntPair<T>> indexed(final int from, final int step) {
-        return map(new Function<T, IntPair<T>>() {
-
-            private int index = from - step;
+        return mapIndexed(from, step, new IndexedFunction<T, IntPair<T>>() {
 
             @Override
-            public IntPair<T> apply(T value) {
-                return new IntPair<T>(index += step, value);
+            public IntPair<T> apply(int index, T t) {
+                return new IntPair<T>(index, t);
             }
         });
     }
 
     /**
-     * Returns {@code Stream} with distinct elements (as determinated by {@code hashCode} and {@code equals} methods).
+     * Returns {@code Stream} with distinct elements (as determined by {@code hashCode} and {@code equals} methods).
      *
      * <p>This is a stateful intermediate operation.
      *
@@ -978,28 +915,36 @@ public final class Stream<T> {
      * @return the new stream
      */
     public Stream<T> distinct() {
-        return new Stream<T>(new LsaExtIterator<T>() {
-
-            private final Set<T> set = new HashSet<T>();
-
-            @Override
-            protected void nextIteration() {
-                while (hasNext = iterator.hasNext()) {
-                    next = iterator.next();
-                    if (!set.contains(next)) {
-                        set.add(next);
-                        return;
-                    }
-                }
-            }
-        });
+        return new Stream<T>(params, new ObjDistinct<T>(iterator));
     }
 
     /**
-     * Returns {@code Stream} with sorted elements (as determinated by {@code Comparable} interface).
+     * Returns {@code Stream} with distinct elements (as determined by {@code hashCode}
+     * and {@code equals} methods) according to the given classifier function.
      *
      * <p>This is a stateful intermediate operation.
-     * <p>If the elements of this stream are not {@code Comparable},
+     *
+     * <p>Example:
+     * <pre>
+     * classifier: (str) -&gt; str.length()
+     * stream: ["a", "bc", "d", "ef", "ghij"]
+     * result: ["a", "bc", "ghij"]
+     * </pre>
+     *
+     * @param <K> the type of the result of classifier function
+     * @param classifier  the classifier function
+     * @return the new stream
+     * @since 1.1.8
+     */
+    public <K> Stream<T> distinctBy(Function<? super T, ? extends K> classifier) {
+        return new Stream<T>(params, new ObjDistinctBy<T, K>(iterator, classifier));
+    }
+
+    /**
+     * Returns {@code Stream} with sorted elements (as determinated by {@link Comparable} interface).
+     *
+     * <p>This is a stateful intermediate operation.
+     * <p>If the elements of this stream are not {@link Comparable},
      * a {@code java.lang.ClassCastException} may be thrown when the terminal operation is executed.
      *
      * <p>Example:
@@ -1039,23 +984,7 @@ public final class Stream<T> {
      * @return the new stream
      */
     public Stream<T> sorted(final Comparator<? super T> comparator) {
-        return new Stream<T>(new LsaExtIterator<T>() {
-
-            private Iterator<T> sortedIterator;
-
-            @Override
-            protected void nextIteration() {
-                if (!isInit) {
-                    final List<T> list = toList();
-                    Collections.sort(list, comparator);
-                    sortedIterator = list.iterator();
-                }
-                hasNext = sortedIterator.hasNext();
-                if (hasNext) {
-                    next = sortedIterator.next();
-                }
-            }
-        });
+        return new Stream<T>(params, new ObjSorted<T>(iterator, comparator));
     }
 
     /**
@@ -1076,12 +1005,7 @@ public final class Stream<T> {
      * @return the new stream
      */
     public <R extends Comparable<? super R>> Stream<T> sortBy(final Function<? super T, ? extends R> f) {
-        return sorted(new Comparator<T>() {
-            @Override
-            public int compare(T o1, T o2) {
-                return f.apply(o1).compareTo(f.apply(o2));
-            }
-        });
+        return sorted(ComparatorCompat.comparing(f));
     }
 
     /**
@@ -1101,7 +1025,8 @@ public final class Stream<T> {
      * @return the new stream
      */
     public <K> Stream<Map.Entry<K, List<T>>> groupBy(final Function<? super T, ? extends K> classifier) {
-        return Stream.of( collect(Collectors.<T, K>groupingBy(classifier)) );
+        Map<K, List<T>> map = collect(Collectors.<T, K>groupingBy(classifier));
+        return new Stream<Map.Entry<K, List<T>>>(params, map.entrySet());
     }
 
     /**
@@ -1125,42 +1050,7 @@ public final class Stream<T> {
      * @return the new stream
      */
     public <K> Stream<List<T>> chunkBy(final Function<? super T, ? extends K> classifier) {
-        return new Stream<List<T>>(new LsaIterator<List<T>>() {
-            private T next;
-            private boolean peekedNext;
-
-            @Override
-            public boolean hasNext() {
-                return peekedNext || iterator.hasNext();
-            }
-
-            @Override
-            public List<T> nextIteration() {
-                K key = classifier.apply(peek());
-
-                List<T> list = new ArrayList<T>();
-                do {
-                    list.add(takeNext());
-                }
-                while (iterator.hasNext() && key.equals(classifier.apply(peek())));
-
-                return list;
-            }
-
-            private T takeNext() {
-                T element = peek();
-                peekedNext = false;
-                return element;
-            }
-
-            private T peek() {
-                if (!peekedNext) {
-                    next = iterator.next();
-                    peekedNext = true;
-                }
-                return next;
-            }
-        });
+        return new Stream<List<T>>(params, new ObjChunkBy<T, K>(iterator, classifier));
     }
 
     /**
@@ -1245,39 +1135,7 @@ public final class Stream<T> {
     public Stream<List<T>> slidingWindow(final int windowSize, final int stepWidth) {
         if (windowSize <= 0) throw new IllegalArgumentException("windowSize cannot be zero or negative");
         if (stepWidth <= 0) throw new IllegalArgumentException("stepWidth cannot be zero or negative");
-        return new Stream<List<T>>(new LsaIterator<List<T>>() {
-            private final Queue<T> queue = Compat.queue();
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public List<T> nextIteration() {
-                int i = queue.size();
-                while (i < windowSize && iterator.hasNext()) {
-                    queue.offer(iterator.next());
-                    i++;
-                }
-
-                // the elements that are currently in the queue are the elements of our current window
-                List<T> list = new ArrayList<T>(queue);
-
-                // remove stepWidth elements from the queue
-                final int pollCount = Math.min(queue.size(), stepWidth);
-                for (int j = 0; j < pollCount; j++) {
-                    queue.poll();
-                }
-
-                // if the stepWidth is greater than the windowSize, skip (stepWidth - windowSize) elements
-                for (int j = windowSize; j < stepWidth && iterator.hasNext(); j++) {
-                    iterator.next();
-                }
-
-                return list;
-            }
-        });
+        return new Stream<List<T>>(params, new ObjSlidingWindow<T>(iterator, windowSize, stepWidth));
     }
 
     /**
@@ -1289,24 +1147,64 @@ public final class Stream<T> {
      * @return the new stream
      */
     public Stream<T> peek(final Consumer<? super T> action) {
-        return new Stream<T>(new LsaIterator<T>() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public T nextIteration() {
-                final T value = iterator.next();
-                action.accept(value);
-                return value;
-            }
-        });
+        return new Stream<T>(params, new ObjPeek<T>(iterator, action));
     }
 
     /**
-     * Takes elements while the predicate is true.
+     * Returns a {@code Stream} produced by iterative application of a accumulation function
+     * to reduction value and next element of the current stream.
+     * Produces a {@code Stream} consisting of {@code value1}, {@code acc(value1, value2)},
+     * {@code acc(acc(value1, value2), value3)}, etc.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * accumulator: (a, b) -&gt; a + b
+     * stream: [1, 2, 3, 4, 5]
+     * result: [1, 3, 6, 10, 15]
+     * </pre>
+     *
+     * @param accumulator  the accumulation function
+     * @return the new stream
+     * @throws NullPointerException if {@code accumulator} is null
+     * @since 1.1.6
+     */
+    public Stream<T> scan(final BiFunction<T, T, T> accumulator) {
+        Objects.requireNonNull(accumulator);
+        return new Stream<T>(params, new ObjScan<T>(iterator, accumulator));
+    }
+
+    /**
+     * Returns a {@code Stream} produced by iterative application of a accumulation function
+     * to an initial element {@code identity} and next element of the current stream.
+     * Produces a {@code Stream} consisting of {@code identity}, {@code acc(identity, value1)},
+     * {@code acc(acc(identity, value1), value2)}, etc.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * identity: 0
+     * accumulator: (a, b) -&gt; a + b
+     * stream: [1, 2, 3, 4, 5]
+     * result: [0, 1, 3, 6, 10, 15]
+     * </pre>
+     *
+     * @param <R> the type of the result
+     * @param identity  the initial value
+     * @param accumulator  the accumulation function
+     * @return the new stream
+     * @throws NullPointerException if {@code accumulator} is null
+     * @since 1.1.6
+     */
+    public <R> Stream<R> scan(final R identity, final BiFunction<? super R, ? super T, ? extends R> accumulator) {
+        Objects.requireNonNull(accumulator);
+        return new Stream<R>(params, new ObjScanIdentity<T, R>(iterator, identity, accumulator));
+    }
+
+    /**
+     * Takes elements while the predicate returns {@code true}.
      *
      * <p>This is an intermediate operation.
      *
@@ -1321,18 +1219,137 @@ public final class Stream<T> {
      * @return the new stream
      */
     public Stream<T> takeWhile(final Predicate<? super T> predicate) {
-        return new Stream<T>(new LsaExtIterator<T>() {
-
-            @Override
-            protected void nextIteration() {
-                hasNext = iterator.hasNext()
-                        && predicate.test(next = iterator.next());
-            }
-        });
+        return new Stream<T>(params, new ObjTakeWhile<T>(iterator, predicate));
     }
 
     /**
-     * Drops elements while the predicate is true and returns the rest.
+     * Takes elements while the {@code IndexedPredicate} returns {@code true}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * predicate: (index, value) -&gt; (index + value) &lt; 5
+     * stream: [1, 2, 3,  4, -5, -6, -7]
+     * index:  [0, 1, 2,  3,  4,  5,  6]
+     * sum:    [1, 3, 5,  7, -1, -1, -1]
+     * result: [1, 2]
+     * </pre>
+     *
+     * @param predicate  the {@code IndexedPredicate} used to take elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> takeWhileIndexed(IndexedPredicate<? super T> predicate) {
+        return takeWhileIndexed(0, 1, predicate);
+    }
+
+    /**
+     * Takes elements while the {@code IndexedPredicate} returns {@code true}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: 2
+     * step: 2
+     * predicate: (index, value) -&gt; (index + value) &lt; 8
+     * stream: [1, 2, 3,  4, -5, -6, -7]
+     * index:  [2, 4, 6,  8, 10, 12, 14]
+     * sum:    [3, 6, 9, 12,  5,  6,  7]
+     * result: [1, 2]
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param predicate  the {@code IndexedPredicate} used to take elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> takeWhileIndexed(int from, int step, IndexedPredicate<? super T> predicate) {
+        return new Stream<T>(params, new ObjTakeWhileIndexed<T>(
+                new IndexedIterator<T>(from, step, iterator),
+                predicate));
+    }
+
+    /**
+     * Takes elements while the predicate returns {@code false}.
+     * Once predicate condition is satisfied by an element, the stream
+     * finishes with this element.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * stopPredicate: (a) -&gt; a &gt; 2
+     * stream: [1, 2, 3, 4, 1, 2, 3, 4]
+     * result: [1, 2, 3]
+     * </pre>
+     *
+     * @param stopPredicate  the predicate used to take elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> takeUntil(final Predicate<? super T> stopPredicate) {
+        return new Stream<T>(params, new ObjTakeUntil<T>(iterator, stopPredicate));
+    }
+
+    /**
+     * Takes elements while the {@code IndexedPredicate} returns {@code false}.
+     * Once predicate condition is satisfied by an element, the stream
+     * finishes with this element.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * stopPredicate: (index, value) -&gt; (index + value) &gt; 4
+     * stream: [1, 2, 3, 4, 0, 1, 2]
+     * index:  [0, 1, 2, 3, 4, 5, 6]
+     * sum:    [1, 3, 5, 7, 4, 6, 8]
+     * result: [1, 2, 3]
+     * </pre>
+     *
+     * @param stopPredicate  the {@code IndexedPredicate} used to take elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> takeUntilIndexed(IndexedPredicate<? super T> stopPredicate) {
+        return takeUntilIndexed(0, 1, stopPredicate);
+    }
+
+    /**
+     * Takes elements while the {@code IndexedPredicate} returns {@code false}.
+     * Once predicate condition is satisfied by an element, the stream
+     * finishes with this element.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: 2
+     * step: 2
+     * stopPredicate: (index, value) -&gt; (index + value) &gt; 8
+     * stream: [1, 2, 3,  4,  0,  1,  2]
+     * index:  [2, 4, 6,  8, 10, 11, 14]
+     * sum:    [3, 6, 9, 12, 10, 12, 16]
+     * result: [1, 2, 3]
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param stopPredicate  the {@code IndexedPredicate} used to take elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> takeUntilIndexed(int from, int step, IndexedPredicate<? super T> stopPredicate) {
+        return new Stream<T>(params, new ObjTakeUntilIndexed<T>(
+                new IndexedIterator<T>(from, step, iterator),
+                stopPredicate));
+    }
+
+    /**
+     * Drops elements while the predicate is true, then returns the rest.
      *
      * <p>This is an intermediate operation.
      *
@@ -1347,26 +1364,57 @@ public final class Stream<T> {
      * @return the new stream
      */
     public Stream<T> dropWhile(final Predicate<? super T> predicate) {
-        return new Stream<T>(new LsaExtIterator<T>() {
+        return new Stream<T>(params, new ObjDropWhile<T>(iterator, predicate));
+    }
 
-            @Override
-            protected void nextIteration() {
-                if (!isInit) {
-                    // Skip first time
-                    while (hasNext = iterator.hasNext()) {
-                        next = iterator.next();
-                        if (!predicate.test(next)) {
-                            return;
-                        }
-                    }
-                }
+    /**
+     * Drops elements while the {@code IndexedPredicate} is true, then returns the rest.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * predicate: (index, value) -&gt; (index + value) &lt; 5
+     * stream: [1, 2, 3, 4, 0, 1, 2]
+     * index:  [0, 1, 2, 3, 4, 5, 6]
+     * sum:    [1, 3, 5, 7, 4, 6, 8]
+     * result: [3, 4, 0, 1, 2]
+     * </pre>
+     *
+     * @param predicate  the {@code IndexedPredicate} used to drop elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> dropWhileIndexed(IndexedPredicate<? super T> predicate) {
+        return dropWhileIndexed(0, 1, predicate);
+    }
 
-                hasNext = hasNext && iterator.hasNext();
-                if (!hasNext) return;
-
-                next = iterator.next();
-            }
-        });
+    /**
+     * Drops elements while the {@code IndexedPredicate} is true, then returns the rest.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: 2
+     * step: 2
+     * predicate: (index, value) -&gt; (index + value) &lt; 10
+     * stream: [1, 2, 3,  4, -5, -6, -7]
+     * index:  [2, 4, 6,  8, 10, 12, 14]
+     * sum:    [3, 6, 9, 12,  5,  6,  7]
+     * result: [4, -5, -6, -7]
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param predicate  the {@code IndexedPredicate} used to drop elements
+     * @return the new stream
+     * @since 1.1.6
+     */
+    public Stream<T> dropWhileIndexed(int from, int step, IndexedPredicate<? super T> predicate) {
+        return new Stream<T>(params, new ObjDropWhileIndexed<T>(
+                new IndexedIterator<T>(from, step, iterator),
+                predicate));
     }
 
     /**
@@ -1396,21 +1444,7 @@ public final class Stream<T> {
         if (maxSize == 0) {
             return Stream.empty();
         }
-        return new Stream<T>(new LsaIterator<T>() {
-
-            private long index = 0;
-
-            @Override
-            public boolean hasNext() {
-                return (index < maxSize) && iterator.hasNext();
-            }
-
-            @Override
-            public T nextIteration() {
-                index++;
-                return iterator.next();
-            }
-        });
+        return new Stream<T>(params, new ObjLimit<T>(iterator, maxSize));
     }
 
     /**
@@ -1437,25 +1471,7 @@ public final class Stream<T> {
     public Stream<T> skip(final long n) {
         if (n < 0) throw new IllegalArgumentException("n cannot be negative");
         if (n == 0) return this;
-        return new Stream<T>(new LsaIterator<T>() {
-
-            private long skippedCount;
-
-            @Override
-            public boolean hasNext() {
-                while (skippedCount < n) {
-                    if (!iterator.hasNext()) return false;
-                    iterator.next();
-                    skippedCount++;
-                }
-                return iterator.hasNext();
-            }
-
-            @Override
-            public T nextIteration() {
-                return iterator.next();
-            }
-        });
+        return new Stream<T>(params, new ObjSkip<T>(iterator, n));
     }
 
     /**
@@ -1468,6 +1484,36 @@ public final class Stream<T> {
     public void forEach(final Consumer<? super T> action) {
         while (iterator.hasNext()) {
             action.accept(iterator.next());
+        }
+    }
+
+    /**
+     * Performs the given indexed action on each element.
+     *
+     * <p>This is a terminal operation.
+     *
+     * @param action  the action to be performed on each element
+     * @since 1.1.6
+     */
+    public void forEachIndexed(IndexedConsumer<? super T> action) {
+        forEachIndexed(0, 1, action);
+    }
+
+    /**
+     * Performs the given indexed action on each element.
+     *
+     * <p>This is a terminal operation.
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param action  the action to be performed on each element
+     * @since 1.1.6
+     */
+    public void forEachIndexed(int from, int step, IndexedConsumer<? super T> action) {
+        int index = from;
+        while (iterator.hasNext()) {
+            action.accept(index, iterator.next());
+            index += step;
         }
     }
 
@@ -1494,6 +1540,68 @@ public final class Stream<T> {
         while (iterator.hasNext()) {
             final T value = iterator.next();
             result = accumulator.apply(result, value);
+        }
+        return result;
+    }
+
+    /**
+     * Reduces the elements using provided identity value and
+     * the associative accumulation indexed function.
+     *
+     * <p>This is a terminal operation.
+     *
+     * <p>Example:
+     * <pre>
+     * identity: 10
+     * accumulator: (index, a, b) -&gt; index + a + b
+     * stream: [1, 2, 3, 4, 5]
+     * index:  [0, 1, 2, 3, 4]
+     * result: 10 + 1 + 3 + 5 + 7 + 9 = 35
+     * </pre>
+     *
+     * @param <R> the type of the result
+     * @param identity  the initial value
+     * @param accumulator  the accumulation function
+     * @return the result of the reduction
+     * @since 1.1.6
+     */
+    public <R> R reduceIndexed(R identity, IndexedBiFunction<? super R, ? super T, ? extends R> accumulator) {
+        return reduceIndexed(0, 1, identity, accumulator);
+    }
+
+    /**
+     * Reduces the elements using provided identity value and
+     * the associative accumulation indexed function.
+     *
+     * <p>This is a terminal operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: 1
+     * step: 2
+     * identity: 10
+     * accumulator: (index, a, b) -&gt; index + a + b
+     * stream: [1, 2, 3, 4, 5]
+     * index:  [1, 3, 5, 7, 9]
+     * result: 10 + 2 + 5 + 8 + 11 + 14 = 50
+     * </pre>
+     *
+     * @param <R> the type of the result
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param identity  the initial value
+     * @param accumulator  the accumulation function
+     * @return the result of the reduction
+     * @since 1.1.6
+     */
+    public <R> R reduceIndexed(int from, int step, R identity,
+            IndexedBiFunction<? super R, ? super T, ? extends R> accumulator) {
+        R result = identity;
+        int index = from;
+        while (iterator.hasNext()) {
+            final T value = iterator.next();
+            result = accumulator.apply(index, result, value);
+            index += step;
         }
         return result;
     }
@@ -1549,25 +1657,13 @@ public final class Stream<T> {
      * @param generator  the array constructor reference that accommodates future array of assigned size
      * @return the result of collect elements
      */
-    @SuppressWarnings("unchecked")
     public <R> R[] toArray(IntFunction<R[]> generator) {
-        final List<T> container = toList();
-        final int size = container.size();
-
-        if (size >= MAX_ARRAY_SIZE) throw new IllegalArgumentException(BAD_SIZE);
-
-        //noinspection unchecked
-        T[] source = container.toArray(Compat.<T>newArray(size));
-        R[] boxed = generator.apply(size);
-
-        //noinspection SuspiciousSystemArraycopy
-        System.arraycopy(source, 0, boxed, 0, size);
-        return boxed;
+        return Operators.toArray(iterator, generator);
     }
 
     /**
      * Collects elements to a new {@code List}.
-     * 
+     *
      * <p>This implementation <strong>does not</strong> call {@code collect(Collectors.toList())}, so
      * it can be faster by reducing method calls.
      *
@@ -1751,12 +1847,69 @@ public final class Stream<T> {
     }
 
     /**
+     * Finds the first element and its index that matches the given predicate.
+     *
+     * <p>This is a short-circuiting terminal operation.
+     *
+     * <p>Example:
+     * <pre>
+     * predicate: (index, value) -&gt; index + value == 7
+     * stream: [1, 2, 3, 4, 5, 2, 0]
+     * index:  [0, 1, 2, 3, 4, 5, 6]
+     * result: Optional.of(IntPair(3, 4))
+     * </pre>
+     *
+     * @param predicate  the predicate to find value
+     * @return an {@code Optional} with {@code IntPair}
+     *         or {@code Optional.empty()} if stream is empty or no value was found.
+     * @since 1.1.8
+     */
+    public Optional<IntPair<T>> findIndexed(IndexedPredicate<? super T> predicate) {
+        return findIndexed(0, 1, predicate);
+    }
+
+    /**
+     * Finds the first element and its index that matches the given predicate.
+     *
+     * <p>This is a short-circuiting terminal operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: 0
+     * step: 10
+     * predicate: (index, value) -&gt; index + value == 42
+     * stream: [1, 11, 22, 12, 40]
+     * index:  [0, 10, 20, 30, 40]
+     * result: Optional.of(IntPair(20, 22))
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param predicate  the predicate to find value
+     * @return an {@code Optional} with {@code IntPair}
+     *         or {@code Optional.empty()} if stream is empty or no value was found.
+     * @since 1.1.8
+     */
+    public Optional<IntPair<T>> findIndexed(int from, int step,
+                                            IndexedPredicate<? super T> predicate) {
+        int index = from;
+        while (iterator.hasNext()) {
+            final T value = iterator.next();
+            if (predicate.test(index, value)) {
+                return Optional.of(new IntPair<T>(index, value));
+            }
+            index += step;
+        }
+        return Optional.empty();
+    }
+
+    /**
      * Returns the first element wrapped by {@code Optional} class.
      * If stream is empty, returns {@code Optional.empty()}.
      *
      * <p>This is a short-circuiting terminal operation.
      *
-     * @return an {@code Optional} with first element
+     * @return an {@code Optional} with the first element
      *         or {@code Optional.empty()} if stream is empty
      */
     public Optional<T> findFirst() {
@@ -1764,6 +1917,25 @@ public final class Stream<T> {
             return Optional.of(iterator.next());
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns the last element wrapped by {@code Optional} class.
+     * If stream is empty, returns {@code Optional.empty()}.
+     *
+     * <p>This is a short-circuiting terminal operation.
+     *
+     * @return an {@code Optional} with the last element
+     *         or {@code Optional.empty()} if the stream is empty
+     * @since 1.1.8
+     */
+    public Optional<T> findLast() {
+        return reduce(new BinaryOperator<T>() {
+            @Override
+            public T apply(T left, T right) {
+                return right;
+            }
+        });
     }
 
     /**
@@ -1836,6 +2008,44 @@ public final class Stream<T> {
             }
         } else {
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Adds close handler to the current stream.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param closeHandler  an action to execute when the stream is closed
+     * @return the new stream with the close handler
+     * @since 1.1.8
+     */
+    public Stream<T> onClose(final Runnable closeHandler) {
+        Objects.requireNonNull(closeHandler);
+        final Params newParams;
+        if (params == null) {
+            newParams = new Params();
+            newParams.closeHandler = closeHandler;
+        } else {
+            newParams = params;
+            final Runnable firstHandler = newParams.closeHandler;
+            newParams.closeHandler = Compose.runnables(firstHandler, closeHandler);
+        }
+        return new Stream<T>(newParams, iterator);
+    }
+
+    /**
+     * Causes close handler to be invoked if it exists.
+     * Since most of the stream providers are lists or arrays,
+     * it is not necessary to close the stream.
+     *
+     * @since 1.1.8
+     */
+    @Override
+    public void close() {
+        if (params != null && params.closeHandler != null) {
+            params.closeHandler.run();
+            params.closeHandler = null;
         }
     }
 

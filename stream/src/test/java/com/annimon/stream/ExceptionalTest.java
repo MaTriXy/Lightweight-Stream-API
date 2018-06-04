@@ -5,6 +5,7 @@ import com.annimon.stream.function.Function;
 import com.annimon.stream.function.Supplier;
 import com.annimon.stream.function.ThrowableFunction;
 import com.annimon.stream.function.ThrowableSupplier;
+import com.annimon.stream.function.UnaryOperator;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -28,6 +29,17 @@ public class ExceptionalTest {
     }
 
     @Test
+    public void testIsPresent() {
+        assertTrue(Exceptional
+                .of(tenSupplier)
+                .isPresent());
+
+        assertFalse(Exceptional
+                .of(ioExceptionSupplier)
+                .isPresent());
+    }
+
+    @Test
     public void testGetOrElse() {
         int value = Exceptional
                 .of(ioExceptionSupplier)
@@ -37,6 +49,22 @@ public class ExceptionalTest {
         value = Exceptional
                 .of(tenSupplier)
                 .getOrElse(20);
+        assertEquals(10, value);
+
+        Supplier<Integer> supplier = new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                return 3228;
+            }
+        };
+        value = Exceptional
+                .of(ioExceptionSupplier)
+                .getOrElse(supplier);
+        assertEquals(3228, value);
+
+        value = Exceptional
+                .of(tenSupplier)
+                .getOrElse(supplier);
         assertEquals(10, value);
     }
 
@@ -154,6 +182,55 @@ public class ExceptionalTest {
                     }
                 })
                 .getOrThrow();
+    }
+
+    @Test
+    public void testCustomIntermediate() {
+        UnaryOperator<Exceptional<Integer>> incrementer = new UnaryOperator<Exceptional<Integer>>() {
+            @Override
+            public Exceptional<Integer> apply(Exceptional<Integer> exceptional) {
+                return exceptional
+                        .map(new ThrowableFunction<Integer, Integer, Throwable>() {
+                            @Override
+                            public Integer apply(Integer integer) throws Throwable {
+                                return integer + 1;
+                            }
+                        });
+            }
+        };
+        int value;
+        value = Exceptional.of(ioExceptionSupplier)
+                .custom(incrementer)
+                .getOrElse(0);
+        assertEquals(0, value);
+
+        value = Exceptional.of(tenSupplier)
+                .custom(incrementer)
+                .getOrElse(0);
+        assertEquals(11, value);
+    }
+
+    @Test
+    public void testCustomTerminal() {
+        Function<Exceptional<Integer>, Integer> incrementer = new Function<Exceptional<Integer>, Integer>() {
+            @Override
+            public Integer apply(Exceptional<Integer> exceptional) {
+                return exceptional.map(new ThrowableFunction<Integer, Integer, Throwable>() {
+                    @Override
+                    public Integer apply(Integer integer) throws Throwable {
+                        return integer + 1;
+                    }
+                }).getOrElse(0);
+            }
+        };
+        int value;
+        value = Exceptional.of(ioExceptionSupplier)
+                .custom(incrementer);
+        assertEquals(0, value);
+
+        value = Exceptional.of(tenSupplier)
+                .custom(incrementer);
+        assertEquals(11, value);
     }
 
     @Test
@@ -366,7 +443,7 @@ public class ExceptionalTest {
     @Test
     public void testEqualsReflexive() {
         final Exceptional<Integer> ten1 = Exceptional.of(tenSupplier);
-        assertTrue(ten1.equals(ten1));
+        assertEquals(ten1, ten1);
     }
 
     @Test
@@ -374,8 +451,8 @@ public class ExceptionalTest {
         final Exceptional<Integer> ten1 = Exceptional.of(tenSupplier);
         final Exceptional<Integer> ten2 = Exceptional.of(tenSupplier);
 
-        assertTrue(ten1.equals(ten2));
-        assertTrue(ten2.equals(ten1));
+        assertEquals(ten1, ten2);
+        assertEquals(ten2, ten1);
     }
 
     @Test
@@ -384,9 +461,9 @@ public class ExceptionalTest {
         final Exceptional<Integer> ten2 = Exceptional.of(tenSupplier);
         final Exceptional<Integer> ten3 = Exceptional.of(tenSupplier);
 
-        assertTrue(ten1.equals(ten2));
-        assertTrue(ten2.equals(ten3));
-        assertTrue(ten1.equals(ten3));
+        assertEquals(ten1, ten2);
+        assertEquals(ten2, ten3);
+        assertEquals(ten1, ten3);
     }
 
     @Test
@@ -405,7 +482,7 @@ public class ExceptionalTest {
             }
         });
 
-        assertFalse(ten1.equals(tenByte));
+        assertNotEquals(ten1, tenByte);
     }
 
     @Test
@@ -419,7 +496,7 @@ public class ExceptionalTest {
             }
         });
 
-        assertFalse(ten1.equals(ten2));
+        assertNotEquals(ten1, ten2);
     }
 
     @Test
@@ -427,7 +504,7 @@ public class ExceptionalTest {
         final Exceptional<Integer> ten = Exceptional.of(tenSupplier);
         final Exceptional<Integer> io = Exceptional.of(ioExceptionSupplier);
 
-        assertFalse(ten.equals(io));
+        assertNotEquals(ten, io);
     }
 
 
@@ -490,7 +567,7 @@ public class ExceptionalTest {
         throw new IOException();
     }
 
-    private static enum ExceptionType {
+    private enum ExceptionType {
         NULL_POINTER(new NullPointerException()),
         UNSUPPORTED_OPERATION(new UnsupportedOperationException()),
         FILE_NOT_FOUND(new FileNotFoundException()),
@@ -500,7 +577,7 @@ public class ExceptionalTest {
 
         private final Exception exception;
 
-        private ExceptionType(Exception exception) {
+        ExceptionType(Exception exception) {
             this.exception = exception;
         }
 

@@ -1,5 +1,6 @@
 package com.annimon.stream;
 
+import com.annimon.stream.function.Function;
 import com.annimon.stream.function.IntConsumer;
 import com.annimon.stream.function.IntFunction;
 import com.annimon.stream.function.IntSupplier;
@@ -15,7 +16,7 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalIntMatcher.hasValue;
 import static com.annimon.stream.test.hamcrest.OptionalIntMatcher.isEmpty;
 import static com.annimon.stream.test.hamcrest.OptionalIntMatcher.isPresent;
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.closeTo;
 import static org.junit.Assert.*;
 
@@ -28,6 +29,16 @@ public class OptionalIntTest {
     public void testGetWithPresentValue() {
         int value = OptionalInt.of(10).getAsInt();
         assertEquals(10, value);
+    }
+
+    @Test
+    public void testOfNullableWithPresentValue() {
+        assertThat(OptionalInt.ofNullable(10), hasValue(10));
+    }
+
+    @Test
+    public void testOfNullableWithAbsentValue() {
+        assertThat(OptionalInt.ofNullable(null), isEmpty());
     }
 
     @Test(expected = NoSuchElementException.class)
@@ -142,7 +153,7 @@ public class OptionalIntTest {
                     }
                 })
                 .getAsInt();
-        assertEquals(10, (int) value);
+        assertEquals(10, value);
     }
 
     @Test
@@ -179,6 +190,37 @@ public class OptionalIntTest {
     }
 
     @Test
+    public void testCustomIntermediate() {
+        OptionalInt result = OptionalInt.of(10)
+                .custom(new Function<OptionalInt, OptionalInt>() {
+                    @Override
+                    public OptionalInt apply(OptionalInt optional) {
+                        return optional.filter(Functions.remainderInt(2));
+                    }
+                });
+
+        assertThat(result, hasValue(10));
+    }
+
+    @Test
+    public void testCustomTerminal() {
+        Integer result = OptionalInt.empty()
+                .custom(new Function<OptionalInt, Integer>() {
+                    @Override
+                    public Integer apply(OptionalInt optional) {
+                        return optional.orElse(0);
+                    }
+                });
+
+        assertThat(result, is(0));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testCustomException() {
+        OptionalInt.empty().custom(null);
+    }
+
+    @Test
     public void testFilter() {
         OptionalInt result;
         result = OptionalInt.of(4)
@@ -191,6 +233,22 @@ public class OptionalIntTest {
 
         result = OptionalInt.of(9)
                 .filter(Functions.remainderInt(2));
+        assertThat(result, isEmpty());
+    }
+
+    @Test
+    public void testFilterNot() {
+        OptionalInt result;
+        result = OptionalInt.of(4)
+                .filterNot(Functions.remainderInt(3));
+        assertThat(result, hasValue(4));
+
+        result = OptionalInt.empty()
+                .filterNot(Functions.remainderInt(3));
+        assertThat(result, isEmpty());
+
+        result = OptionalInt.of(9)
+                .filterNot(Functions.remainderInt(3));
         assertThat(result, isEmpty());
     }
 
@@ -342,6 +400,17 @@ public class OptionalIntTest {
     }
 
     @Test
+    public void testOrElseThrowWithPresentValue() {
+        int value = OptionalInt.of(10).orElseThrow();
+        assertEquals(10, value);
+    }
+
+    @Test(expected = NoSuchElementException.class)
+    public void testOrElseThrowOnEmptyOptional() {
+        OptionalInt.empty().orElseThrow();
+    }
+
+    @Test
     public void testOrElseThrow() {
         try {
             assertEquals(25, OptionalInt.of(25).orElseThrow(new Supplier<NoSuchElementException>() {
@@ -369,12 +438,12 @@ public class OptionalIntTest {
     @Test
     public void testEquals() {
         assertEquals(OptionalInt.empty(), OptionalInt.empty());
-        assertFalse(OptionalInt.empty().equals(Optional.empty()));
+        assertNotEquals(OptionalInt.empty(), Optional.empty());
 
         assertEquals(OptionalInt.of(42), OptionalInt.of(42));
 
-        assertFalse(OptionalInt.of(41).equals(OptionalInt.of(42)));
-        assertFalse(OptionalInt.of(0).equals(OptionalInt.empty()));
+        assertNotEquals(OptionalInt.of(41), OptionalInt.of(42));
+        assertNotEquals(OptionalInt.of(0), OptionalInt.empty());
     }
 
     @Test

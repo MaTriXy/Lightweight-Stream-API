@@ -4,10 +4,12 @@ import com.annimon.stream.function.Consumer;
 import com.annimon.stream.function.Function;
 import com.annimon.stream.function.Predicate;
 import com.annimon.stream.function.Supplier;
+import com.annimon.stream.function.ToBooleanFunction;
 import com.annimon.stream.function.ToDoubleFunction;
 import com.annimon.stream.function.ToIntFunction;
 import com.annimon.stream.function.ToLongFunction;
 import com.annimon.stream.function.UnaryOperator;
+import com.annimon.stream.test.hamcrest.OptionalBooleanMatcher;
 import com.annimon.stream.test.hamcrest.OptionalDoubleMatcher;
 import com.annimon.stream.test.hamcrest.OptionalIntMatcher;
 import com.annimon.stream.test.hamcrest.OptionalLongMatcher;
@@ -17,7 +19,7 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalMatcher.hasValue;
 import static com.annimon.stream.test.hamcrest.OptionalMatcher.isEmpty;
 import static com.annimon.stream.test.hamcrest.OptionalMatcher.isPresent;
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.closeTo;
 import static org.junit.Assert.*;
 
@@ -188,9 +190,48 @@ public final class OptionalTest {
     }
 
     @Test
+    public void testCustomIntermediate() {
+        Optional<Integer> result = Optional.of(10)
+                .custom(new Function<Optional<Integer>, Optional<Integer>>() {
+                    @Override
+                    public Optional<Integer> apply(Optional<Integer> optional) {
+                        return optional.filter(Functions.remainder(2));
+                    }
+                });
+
+        assertThat(result, hasValue(10));
+    }
+
+    @Test
+    public void testCustomTerminal() {
+        Integer result = Optional.<Integer>empty()
+                .custom(new Function<Optional<Integer>, Integer>() {
+                    @Override
+                    public Integer apply(Optional<Integer> optional) {
+                        return optional.orElse(0);
+                    }
+                });
+
+        assertThat(result, is(0));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testCustomException() {
+        Optional.<Integer>empty().custom(null);
+    }
+
+    @Test
     public void testFilter() {
         Optional<Integer> result = Optional.of(10)
                 .filter(Predicate.Util.negate(Functions.remainder(2)));
+
+        assertThat(result, isEmpty());
+    }
+
+    @Test
+    public void testFilterNot() {
+        Optional<Integer> result = Optional.of(10)
+                .filterNot(Functions.remainder(2));
 
         assertThat(result, isEmpty());
     }
@@ -268,6 +309,23 @@ public final class OptionalTest {
 
         result = Optional.of("65").mapToDouble(mapper);
         assertThat(result, OptionalDoubleMatcher.hasValueThat(closeTo(0.65, 0.0001)));
+    }
+
+    @Test
+    public void testMapToBoolean() {
+        final ToBooleanFunction<String> mapper = new ToBooleanFunction<String>() {
+            @Override
+            public boolean applyAsBoolean(String s) {
+                return "true".equalsIgnoreCase(s);
+            }
+        };
+
+        OptionalBoolean result;
+        result = Optional.<String>empty().mapToBoolean(mapper);
+        assertThat(result, OptionalBooleanMatcher.isEmpty());
+
+        result = Optional.of("true").mapToBoolean(mapper);
+        assertThat(result, OptionalBooleanMatcher.hasValueThat(is(true)));
     }
 
     @Test
@@ -413,6 +471,22 @@ public final class OptionalTest {
         assertEquals(42, value);
     }
 
+    @Test
+    public void testOrElseThrowWithPresentValue() {
+        int value = Optional.of(10).orElseThrow();
+        assertEquals(10, value);
+    }
+
+    @Test
+    public void testOrElseThrowWithObject() {
+        assertEquals("Lena", Optional.of(student).orElseThrow().getName());
+    }
+
+    @Test(expected = NoSuchElementException.class)
+    public void testOrElseThrowOnEmptyOptional() {
+        Optional.empty().orElseThrow();
+    }
+
     @Test(expected = ArithmeticException.class)
     public void testOrElseThrow() {
         Optional.empty().orElseThrow(new Supplier<RuntimeException>() {
@@ -427,7 +501,7 @@ public final class OptionalTest {
     @Test
     public void testEqualsReflexive() {
         final Optional<Student> s1 = Optional.of(student);
-        assertTrue(s1.equals(s1));
+        assertEquals(s1, s1);
     }
 
     @Test
@@ -435,8 +509,8 @@ public final class OptionalTest {
         final Optional<Student> s1 = Optional.of(student);
         final Optional<Student> s2 = Optional.of(student);
 
-        assertTrue(s1.equals(s2));
-        assertTrue(s2.equals(s1));
+        assertEquals(s1, s2);
+        assertEquals(s2, s1);
     }
 
     @Test
@@ -445,9 +519,9 @@ public final class OptionalTest {
         final Optional<Student> s2 = Optional.of(student);
         final Optional<Student> s3 = Optional.of(student);
 
-        assertTrue(s1.equals(s2));
-        assertTrue(s2.equals(s3));
-        assertTrue(s1.equals(s3));
+        assertEquals(s1, s2);
+        assertEquals(s2, s3);
+        assertEquals(s1, s3);
     }
 
     @Test
@@ -461,7 +535,7 @@ public final class OptionalTest {
         final Optional<Student> s1 = Optional.of(student);
         final Optional<Integer> optInt = Optional.of(10);
 
-        assertFalse(s1.equals(optInt));
+        assertNotEquals(s1, optInt);
     }
 
     @Test
@@ -469,7 +543,7 @@ public final class OptionalTest {
         final Optional<Integer> optInt = Optional.of(10);
         final Optional<Integer> optIntNullable = Optional.ofNullable(10);
 
-        assertTrue(optInt.equals(optIntNullable));
+        assertEquals(optInt, optIntNullable);
     }
 
     @Test
@@ -477,7 +551,7 @@ public final class OptionalTest {
         final Optional<Integer> empty1 = Optional.ofNullable(null);
         final Optional<Integer> empty2 = Optional.empty();
 
-        assertTrue(empty1.equals(empty2));
+        assertEquals(empty1, empty2);
     }
 
     @Test

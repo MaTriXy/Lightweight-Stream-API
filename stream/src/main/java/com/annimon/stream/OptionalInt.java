@@ -1,5 +1,6 @@
 package com.annimon.stream;
 
+import com.annimon.stream.function.Function;
 import com.annimon.stream.function.IntConsumer;
 import com.annimon.stream.function.IntFunction;
 import com.annimon.stream.function.IntPredicate;
@@ -67,19 +68,29 @@ public final class OptionalInt {
     }
 
     /**
+     * Returns an {@code OptionalInt} with the specified value, or empty {@code OptionalInt} if value is null.
+     *
+     * @param value the value which can be null
+     * @return an {@code OptionalInt}
+     * @since 1.2.1
+     */
+    public static OptionalInt ofNullable(Integer value) {
+        return value == null ? EMPTY : new OptionalInt(value);
+    }
+
+    /**
      * If a value is present in this {@code OptionalInt}, returns the value,
      * otherwise throws {@code NoSuchElementException}.
      *
+     * Since 1.2.0 prefer {@link #orElseThrow()} method as it has readable name.
+     *
      * @return the value held by this {@code OptionalInt}
      * @throws NoSuchElementException if there is no value present
-     *
      * @see OptionalInt#isPresent()
+     * @see #orElseThrow()
      */
     public int getAsInt() {
-        if(!isPresent) {
-            throw new NoSuchElementException("No value present");
-        }
-        return value;
+        return orElseThrow();
     }
 
     /**
@@ -149,7 +160,21 @@ public final class OptionalInt {
     }
 
     /**
-     * Performs filtering on inner value if present.
+     * Applies custom operator on {@code OptionalInt}.
+     *
+     * @param <R> the type of the result
+     * @param function  a transforming function
+     * @return a result of the transforming function
+     * @throws NullPointerException if {@code function} is null
+     * @since 1.1.9
+     */
+    public <R> R custom(Function<OptionalInt, R> function) {
+        Objects.requireNonNull(function);
+        return function.apply(this);
+    }
+
+    /**
+     * Performs filtering on inner value if it is present.
      *
      * @param predicate  a predicate function
      * @return this {@code OptionalInt} if the value is present and matches predicate,
@@ -159,6 +184,18 @@ public final class OptionalInt {
     public OptionalInt filter(IntPredicate predicate) {
         if (!isPresent()) return this;
         return predicate.test(value) ? this : OptionalInt.empty();
+    }
+
+    /**
+     * Performs negated filtering on inner value if it is present.
+     *
+     * @param predicate  a predicate function
+     * @return this {@code OptionalInt} if the value is present and doesn't matches predicate,
+     *              otherwise an empty {@code OptionalInt}
+     * @since 1.1.9
+     */
+    public OptionalInt filterNot(IntPredicate predicate) {
+        return filter(IntPredicate.Util.negate(predicate));
     }
 
     /**
@@ -270,6 +307,20 @@ public final class OptionalInt {
      */
     public int orElseGet(IntSupplier other) {
         return isPresent ? value : other.getAsInt();
+    }
+
+    /**
+     * Returns inner value if present, otherwise throws {@code NoSuchElementException}.
+     *
+     * @return inner value if present
+     * @throws NoSuchElementException if inner value is not present
+     * @since 1.2.0
+     */
+    public int orElseThrow() {
+        if (!isPresent) {
+            throw new NoSuchElementException("No value present");
+        }
+        return value;
     }
 
     /**

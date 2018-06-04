@@ -1,15 +1,7 @@
 package com.annimon.stream;
 
-import com.annimon.stream.function.BiConsumer;
-import com.annimon.stream.function.BiFunction;
-import com.annimon.stream.function.DoublePredicate;
-import com.annimon.stream.function.Function;
-import com.annimon.stream.function.IntFunction;
-import com.annimon.stream.function.IntPredicate;
-import com.annimon.stream.function.LongPredicate;
-import com.annimon.stream.function.Predicate;
-import com.annimon.stream.function.Supplier;
-import com.annimon.stream.function.ToIntFunction;
+import com.annimon.stream.function.*;
+
 import java.lang.reflect.Array;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -36,6 +28,36 @@ public final class Functions {
 
             @Override
             public String apply(T value) {
+                return String.valueOf(value);
+            }
+        };
+    }
+
+    public static IntFunction<String> convertIntToString() {
+        return new IntFunction<String>() {
+
+            @Override
+            public String apply(int value) {
+                return String.valueOf(value);
+            }
+        };
+    }
+
+    public static LongFunction<String> convertLongToString() {
+        return new LongFunction<String>() {
+
+            @Override
+            public String apply(long value) {
+                return String.valueOf(value);
+            }
+        };
+    }
+
+    public static DoubleFunction<String> convertDoubleToString() {
+        return new DoubleFunction<String>() {
+
+            @Override
+            public String apply(double value) {
                 return String.valueOf(value);
             }
         };
@@ -197,12 +219,21 @@ public final class Functions {
         };
     }
 
+    public static IndexedBiFunction<Integer, Integer, Integer> indexedAddition() {
+        return new IndexedBiFunction<Integer, Integer, Integer>() {
+            @Override
+            public Integer apply(int index, Integer value1, Integer value2) {
+                return index + value1 + value2;
+            }
+        };
+    }
+
     public static Comparator<Integer> naturalOrder() {
         return new Comparator<Integer>() {
 
             @Override
             public int compare(Integer o1, Integer o2) {
-                return Integer.compare(o1, o2);
+                return Objects.compareInt(o1, o2);
             }
         };
     }
@@ -212,7 +243,7 @@ public final class Functions {
 
             @Override
             public int compare(Integer o1, Integer o2) {
-                return Integer.compare(Math.abs(o2), Math.abs(o1));
+                return Objects.compareInt(Math.abs(o2), Math.abs(o1));
             }
         };
     }

@@ -7,13 +7,12 @@ package com.annimon.stream.function;
  * @param <E> the type of the exception
  * @see Predicate
  */
-@FunctionalInterface
 public interface ThrowablePredicate<T, E extends Throwable> {
 
     /**
      * Tests the value for satisfying predicate.
      *
-     * @param value  the value to be tests
+     * @param value  the value to be tested
      * @return {@code true} if the value matches the predicate, otherwise {@code false}
      * @throws E an exception
      */

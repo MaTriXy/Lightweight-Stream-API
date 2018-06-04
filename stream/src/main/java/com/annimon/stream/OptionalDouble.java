@@ -7,6 +7,7 @@ import com.annimon.stream.function.DoubleSupplier;
 import com.annimon.stream.function.DoubleToIntFunction;
 import com.annimon.stream.function.DoubleToLongFunction;
 import com.annimon.stream.function.DoubleUnaryOperator;
+import com.annimon.stream.function.Function;
 import com.annimon.stream.function.Supplier;
 import java.util.NoSuchElementException;
 
@@ -40,6 +41,16 @@ public final class OptionalDouble {
         return new OptionalDouble(value);
     }
 
+    /**
+     * Returns an {@code OptionalDouble} with the specified value, or empty {@code OptionalDouble} if value is null.
+     *
+     * @param value the value which can be null
+     * @return an {@code OptionalDouble}
+     * @since 1.2.1
+     */
+    public static OptionalDouble ofNullable(Double value) {
+        return value == null ? EMPTY : new OptionalDouble(value);
+    }
 
     private final boolean isPresent;
     private final double value;
@@ -57,15 +68,15 @@ public final class OptionalDouble {
     /**
      * Returns an inner value if present, otherwise throws {@code NoSuchElementException}.
      *
+     * Since 1.2.0 prefer {@link #orElseThrow()} method as it has readable name.
+     *
      * @return the inner value of this {@code OptionalDouble}
      * @throws NoSuchElementException if there is no value present
      * @see OptionalDouble#isPresent()
+     * @see #orElseThrow()
      */
     public double getAsDouble() {
-        if (!isPresent) {
-            throw new NoSuchElementException("No value present");
-        }
-        return value;
+        return orElseThrow();
     }
 
     /**
@@ -133,7 +144,21 @@ public final class OptionalDouble {
     }
 
     /**
-     * Performs filtering on inner value if present.
+     * Applies custom operator on {@code OptionalDouble}.
+     *
+     * @param <R> the type of the result
+     * @param function  a transforming function
+     * @return a result of the transforming function
+     * @throws NullPointerException if {@code function} is null
+     * @since 1.1.9
+     */
+    public <R> R custom(Function<OptionalDouble, R> function) {
+        Objects.requireNonNull(function);
+        return function.apply(this);
+    }
+
+    /**
+     * Performs filtering on inner value if it is present.
      *
      * @param predicate  a predicate function
      * @return this {@code OptionalDouble} if the value is present and matches predicate,
@@ -142,6 +167,18 @@ public final class OptionalDouble {
     public OptionalDouble filter(DoublePredicate predicate) {
         if (!isPresent()) return this;
         return predicate.test(value) ? this : OptionalDouble.empty();
+    }
+
+    /**
+     * Performs negated filtering on inner value if it is present.
+     *
+     * @param predicate  a predicate function
+     * @return this {@code OptionalDouble} if the value is present and doesn't matches predicate,
+     *              otherwise an empty {@code OptionalDouble}
+     * @since 1.1.9
+     */
+    public OptionalDouble filterNot(DoublePredicate predicate) {
+        return filter(DoublePredicate.Util.negate(predicate));
     }
 
     /**
@@ -261,6 +298,20 @@ public final class OptionalDouble {
      */
     public double orElseGet(DoubleSupplier other) {
         return isPresent ? value : other.getAsDouble();
+    }
+
+    /**
+     * Returns inner value if present, otherwise throws {@code NoSuchElementException}.
+     *
+     * @return inner value if present
+     * @throws NoSuchElementException if inner value is not present
+     * @since 1.2.0
+     */
+    public double orElseThrow() {
+        if (!isPresent) {
+            throw new NoSuchElementException("No value present");
+        }
+        return value;
     }
 
     /**

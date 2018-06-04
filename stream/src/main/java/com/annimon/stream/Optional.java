@@ -7,45 +7,47 @@ import com.annimon.stream.function.Supplier;
 import com.annimon.stream.function.ToDoubleFunction;
 import com.annimon.stream.function.ToIntFunction;
 import com.annimon.stream.function.ToLongFunction;
+import com.annimon.stream.function.ToBooleanFunction;
+
 import java.util.NoSuchElementException;
 
 /**
  * A container object which may or may not contain a non-null value.
- * 
+ *
  * @param <T> the type of the inner value
  */
 public class Optional<T> {
-    
+
     private static final Optional<?> EMPTY = new Optional();
-    
+
     /**
      * Returns an {@code Optional} with the specified present non-null value.
-     * 
+     *
      * @param <T> the type of value
      * @param value  the value to be present, must be non-null
      * @return an {@code Optional}
      * @throws NullPointerException if value is null
-     * @see #ofNullable(java.lang.Object) 
+     * @see #ofNullable(java.lang.Object)
      */
     public static <T> Optional<T> of(T value) {
         return new Optional<T>(value);
     }
-    
+
     /**
      * Returns an {@code Optional} with the specified value, or empty {@code Optional} if value is null.
-     * 
+     *
      * @param <T> the type of value
      * @param value  the value which can be null
      * @return an {@code Optional}
-     * @see #of(java.lang.Object) 
+     * @see #of(java.lang.Object)
      */
     public static <T> Optional<T> ofNullable(T value) {
         return value == null ? Optional.<T>empty() : of(value);
     }
-    
+
     /**
      * Returns an empty {@code Optional}.
-     * 
+     *
      * @param <T> the type of value
      * @return an {@code Optional}
      */
@@ -53,42 +55,42 @@ public class Optional<T> {
     public static <T> Optional<T> empty() {
         return (Optional<T>) EMPTY;
     }
-    
+
     private final T value;
 
     private Optional() {
         this.value = null;
     }
-    
+
     private Optional(T value) {
         this.value = Objects.requireNonNull(value);
     }
-    
+
     /**
      * Returns an inner value if present, otherwise throws {@code NoSuchElementException}.
-     * 
+     *
+     * Since 1.2.0 prefer {@link #orElseThrow()} method as it has readable name.
+     *
      * @return the inner value of {@code Optional}
      * @throws NoSuchElementException if value is not present
+     * @see #orElseThrow()
      */
     public T get() {
-        if (value == null) {
-            throw new NoSuchElementException("No value present");
-        }
-        return value;
+        return orElseThrow();
     }
-    
+
     /**
      * Checks value present.
-     * 
+     *
      * @return {@code true} if a value present, {@code false} otherwise
      */
     public boolean isPresent() {
         return value != null;
     }
-    
+
     /**
      * Invokes consumer function with value if present.
-     * 
+     *
      * @param consumer  the consumer function
      */
     public void ifPresent(Consumer<? super T> consumer) {
@@ -139,10 +141,24 @@ public class Optional<T> {
             action.run();
         return this;
     }
-    
+
     /**
-     * Performs filtering on inner value if present.
-     * 
+     * Applies custom operator on {@code Optional}.
+     *
+     * @param <R> the type of the result
+     * @param function  a transforming function
+     * @return a result of the transforming function
+     * @throws NullPointerException if {@code function} is null
+     * @since 1.1.9
+     */
+    public <R> R custom(Function<Optional<T>, R> function) {
+        Objects.requireNonNull(function);
+        return function.apply(this);
+    }
+
+    /**
+     * Performs filtering on inner value if it is present.
+     *
      * @param predicate  a predicate function
      * @return this {@code Optional} if the value is present and matches predicate,
      *              otherwise an empty {@code Optional}
@@ -151,10 +167,22 @@ public class Optional<T> {
         if (!isPresent()) return this;
         return predicate.test(value) ? this : Optional.<T>empty();
     }
-    
+
+    /**
+     * Performs negated filtering on inner value if it is present.
+     *
+     * @param predicate  a predicate function
+     * @return this {@code Optional} if the value is present and doesn't matches predicate,
+     *              otherwise an empty {@code Optional}
+     * @since 1.1.9
+     */
+    public Optional<T> filterNot(Predicate<? super T> predicate) {
+        return filter(Predicate.Util.negate(predicate));
+    }
+
     /**
      * Invokes the given mapping function on inner value if present.
-     * 
+     *
      * @param <U> the type of result value
      * @param mapper  mapping function
      * @return an {@code Optional} with transformed value if present,
@@ -211,10 +239,24 @@ public class Optional<T> {
         if (!isPresent()) return OptionalDouble.empty();
         return OptionalDouble.of(mapper.applyAsDouble(value));
     }
-    
+
+    /**
+     * Invokes mapping function on inner value if present.
+     *
+     * @param mapper  mapping function
+     * @return an {@code OptionalBoolean} with transformed value if present,
+     *         otherwise an empty {@code OptionalBoolean}
+     * @throws NullPointerException if value is present and
+     *         {@code mapper} is {@code null}
+     */
+    public OptionalBoolean mapToBoolean(ToBooleanFunction<? super T> mapper) {
+        if (!isPresent()) return OptionalBoolean.empty();
+        return OptionalBoolean.of(mapper.applyAsBoolean(value));
+    }
+
     /**
      * Invokes mapping function with {@code Optional} result if value is present.
-     * 
+     *
      * @param <U> the type of result value
      * @param mapper  mapping function
      * @return an {@code Optional} with transformed value if present, otherwise an empty {@code Optional}
@@ -264,30 +306,44 @@ public class Optional<T> {
         Objects.requireNonNull(supplier);
         return Objects.requireNonNull(supplier.get());
     }
-    
+
     /**
      * Returns inner value if present, otherwise returns {@code other}.
-     * 
+     *
      * @param other  the value to be returned if inner value is not present
      * @return inner value if present, otherwise {@code other}
      */
     public T orElse(T other) {
         return value != null ? value : other;
     }
-    
+
     /**
      * Returns inner value if present, otherwise returns value produced by supplier function.
-     * 
+     *
      * @param other  supplier function that produces value if inner value is not present
      * @return inner value if present, otherwise value produced by supplier function
      */
     public T orElseGet(Supplier<? extends T> other) {
         return value != null ? value : other.get();
     }
-    
+
+    /**
+     * Returns inner value if present, otherwise throws {@code NoSuchElementException}.
+     *
+     * @return inner value if present
+     * @throws NoSuchElementException if inner value is not present
+     * @since 1.2.0
+     */
+    public T orElseThrow() {
+        if (value == null) {
+            throw new NoSuchElementException("No value present");
+        }
+        return value;
+    }
+
     /**
      * Returns inner value if present, otherwise throws the exception provided by supplier function.
-     * 
+     *
      * @param <X> the type of exception to be thrown
      * @param exc  supplier function that produces an exception to be thrown
      * @return inner value if present
@@ -297,7 +353,7 @@ public class Optional<T> {
         if (value != null) return value;
         else throw exc.get();
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -311,12 +367,12 @@ public class Optional<T> {
         Optional<?> other = (Optional<?>) obj;
         return Objects.equals(value, other.value);
     }
-    
+
     @Override
     public int hashCode() {
         return Objects.hashCode(value);
     }
-    
+
     @Override
     public String toString() {
         return value != null

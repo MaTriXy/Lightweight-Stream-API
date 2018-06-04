@@ -1,17 +1,9 @@
 // Plugins
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath 'net.saliman:gradle-cobertura-plugin:2.2.6'
-        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.6.3'
-    }
+plugins {
+    id "net.saliman.cobertura" version "2.2.6"
+    id "com.github.kt3k.coveralls" version "2.8.1"
+    id "me.champeau.gradle.jmh" version "0.4.4"
 }
-
-apply plugin: 'com.github.kt3k.coveralls'
-apply plugin: 'net.saliman.cobertura'
 
 allprojects {
     repositories {
@@ -28,12 +20,12 @@ subprojects {
 
 cobertura {
     coverageFormats = ['html', 'xml']
-    coverageExcludes = ['.*com\\.annimon\\.stream\\.Compat.*', '.*com\\.annimon\\.stream\\.test\\.hamcrest\\.CommonMatcher.*']
+    coverageExcludes = ['.*com\\.annimon\\.stream\\.internal\\.Compat.*', '.*com\\.annimon\\.stream\\.test\\.hamcrest\\.CommonMatcher.*']
     coverageReportDatafile = file("build/cobertura/cobertura.ser")
     coverageReportDir = file("build/reports/coverage")
     coverageSourceDirs = subprojects.sourceSets.main.allSource.srcDirs.flatten()
     coverageMergeDatafiles = subprojects.collect { file("${it.buildDir}/cobertura/cobertura.ser") }
-    coverageDirs = subprojects.collect { file("${it.buildDir}/classes/main") }
+    coverageDirs = subprojects.sourceSets.main.output.classesDirs.collect { it.getFiles() }
 }
 
 coveralls {

@@ -1,5 +1,6 @@
 package com.annimon.stream;
 
+import com.annimon.stream.function.Function;
 import com.annimon.stream.function.LongConsumer;
 import com.annimon.stream.function.LongFunction;
 import com.annimon.stream.function.LongSupplier;
@@ -13,11 +14,8 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalLongMatcher.hasValue;
 import static com.annimon.stream.test.hamcrest.OptionalLongMatcher.isEmpty;
 import static com.annimon.stream.test.hamcrest.OptionalLongMatcher.isPresent;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.*;
 
 /**
  * Tests for {@link OptionalLong}
@@ -28,6 +26,16 @@ public class OptionalLongTest {
     public void testGetWithPresentValue() {
         long value = OptionalLong.of(10).getAsLong();
         assertEquals(10, value);
+    }
+
+    @Test
+    public void testOfNullableWithPresentValue() {
+        assertThat(OptionalLong.ofNullable(10L), hasValue(10L));
+    }
+
+    @Test
+    public void testOfNullableWithAbsentValue() {
+        assertThat(OptionalLong.ofNullable(null), isEmpty());
     }
 
     @Test(expected = NoSuchElementException.class)
@@ -179,6 +187,37 @@ public class OptionalLongTest {
     }
 
     @Test
+    public void testCustomIntermediate() {
+        OptionalLong result = OptionalLong.of(10L)
+                .custom(new Function<OptionalLong, OptionalLong>() {
+                    @Override
+                    public OptionalLong apply(OptionalLong optional) {
+                        return optional.filter(Functions.remainderLong(2));
+                    }
+                });
+
+        assertThat(result, hasValue(10L));
+    }
+
+    @Test
+    public void testCustomTerminal() {
+        Long result = OptionalLong.empty()
+                .custom(new Function<OptionalLong, Long>() {
+                    @Override
+                    public Long apply(OptionalLong optional) {
+                        return optional.orElse(0L);
+                    }
+                });
+
+        assertThat(result, is(0L));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testCustomException() {
+        OptionalLong.empty().custom(null);
+    }
+
+    @Test
     public void testFilter() {
         OptionalLong result;
         result = OptionalLong.of(4)
@@ -191,6 +230,22 @@ public class OptionalLongTest {
 
         result = OptionalLong.of(9)
                 .filter(Functions.remainderLong(2));
+        assertThat(result, isEmpty());
+    }
+
+    @Test
+    public void testFilterNot() {
+        OptionalLong result;
+        result = OptionalLong.of(4)
+                .filterNot(Functions.remainderLong(3));
+        assertThat(result, hasValue(4));
+
+        result = OptionalLong.empty()
+                .filterNot(Functions.remainderLong(3));
+        assertThat(result, isEmpty());
+
+        result = OptionalLong.of(9)
+                .filterNot(Functions.remainderLong(3));
         assertThat(result, isEmpty());
     }
 
@@ -326,6 +381,17 @@ public class OptionalLongTest {
     }
 
     @Test
+    public void testOrElseThrowWithPresentValue() {
+        long value = OptionalLong.of(10).orElseThrow();
+        assertEquals(10, value);
+    }
+
+    @Test(expected = NoSuchElementException.class)
+    public void testOrElseThrowOnEmptyOptional() {
+        OptionalLong.empty().orElseThrow();
+    }
+
+    @Test
     public void testOrElseThrow() {
         try {
             assertEquals(25, OptionalLong.of(25).orElseThrow(new Supplier<NoSuchElementException>() {
@@ -353,12 +419,12 @@ public class OptionalLongTest {
     @Test
     public void testEquals() {
         assertEquals(OptionalLong.empty(), OptionalLong.empty());
-        assertFalse(OptionalLong.empty().equals(Optional.empty()));
+        assertNotEquals(OptionalLong.empty(), Optional.empty());
 
         assertEquals(OptionalLong.of(42), OptionalLong.of(42));
 
-        assertFalse(OptionalLong.of(41).equals(OptionalLong.of(42)));
-        assertFalse(OptionalLong.of(0).equals(OptionalLong.empty()));
+        assertNotEquals(OptionalLong.of(41), OptionalLong.of(42));
+        assertNotEquals(OptionalLong.of(0), OptionalLong.empty());
     }
 
     @Test

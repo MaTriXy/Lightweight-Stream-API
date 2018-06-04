@@ -1,7 +1,13 @@
 package com.annimon.stream;
 
 import com.annimon.stream.function.*;
-import java.util.Arrays;
+import com.annimon.stream.internal.Compose;
+import com.annimon.stream.internal.Operators;
+import com.annimon.stream.internal.Params;
+import com.annimon.stream.iterator.PrimitiveIndexedIterator;
+import com.annimon.stream.iterator.PrimitiveIterator;
+import com.annimon.stream.operator.*;
+import java.io.Closeable;
 import java.util.Comparator;
 import java.util.NoSuchElementException;
 
@@ -10,7 +16,7 @@ import java.util.NoSuchElementException;
  * primitive specialization of {@link Stream}.
  */
 @SuppressWarnings("WeakerAccess")
-public final class IntStream {
+public final class IntStream implements Closeable {
 
     /**
      * Single instance for empty stream. It is safe for multi-thread environment because it has no content.
@@ -57,44 +63,36 @@ public final class IntStream {
      */
     public static IntStream of(final int... values) {
         Objects.requireNonNull(values);
-        return new IntStream(new PrimitiveIterator.OfInt() {
-
-            private int index = 0;
-
-            @Override
-            public int nextInt() {
-                return values[index++];
-            }
-
-            @Override
-            public boolean hasNext() {
-                return index < values.length;
-            }
-        });
+        if (values.length == 0) {
+            return IntStream.empty();
+        }
+        return new IntStream(new IntArray(values));
     }
 
     /**
-     * Returns stream which contains single element passed as param
+     * Returns stream which contains single element passed as parameter.
      *
      * @param t element of the stream
      * @return the new stream
      */
     public static IntStream of(final int t) {
-        return new IntStream(new PrimitiveIterator.OfInt() {
+        return new IntStream(new IntArray(new int[] { t }));
+    }
 
-            private int index = 0;
-
-            @Override
-            public int nextInt() {
-                index++;
-                return t;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return index == 0;
-            }
-        });
+    /**
+     * Creates an {@code IntStream} of code point values from the given sequence.
+     * Any surrogate pairs encountered in the sequence are combined as if by {@linkplain
+     * Character#toCodePoint Character.toCodePoint} and the result is passed to the stream.
+     * Any other code units, including ordinary BMP characters, unpaired surrogates, and
+     * undefined code units, are zero-extended to {@code int} values which are then
+     * passed to the stream.
+     *
+     * @param charSequence  the sequence where to get all code points values.
+     * @return the new stream
+     * @since 1.1.8
+     */
+    public static IntStream ofCodePoints(CharSequence charSequence) {
+        return new IntStream(new IntCodePoints(charSequence));
     }
 
     /**
@@ -129,25 +127,9 @@ public final class IntStream {
             return empty();
         } else if (startInclusive == endInclusive) {
             return of(startInclusive);
-        } else return new IntStream(new PrimitiveIterator.OfInt() {
-
-            private int current = startInclusive;
-            private boolean hasNext = current <= endInclusive;
-
-            @Override
-            public boolean hasNext() {
-                return hasNext;
-            }
-
-            @Override
-            public int nextInt() {
-                if (current >= endInclusive) {
-                    hasNext = false;
-                    return endInclusive;
-                }
-                return current++;
-            }
-        });
+        } else {
+            return new IntStream(new IntRangeClosed(startInclusive, endInclusive));
+        }
     }
 
     /**
@@ -161,17 +143,7 @@ public final class IntStream {
      */
     public static IntStream generate(final IntSupplier s) {
         Objects.requireNonNull(s);
-        return new IntStream(new PrimitiveIterator.OfInt() {
-            @Override
-            public int nextInt() {
-                return s.getAsInt();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return true;
-            }
-        });
+        return new IntStream(new IntGenerate(s));
     }
 
     /**
@@ -200,24 +172,7 @@ public final class IntStream {
      */
     public static IntStream iterate(final int seed, final IntUnaryOperator f) {
         Objects.requireNonNull(f);
-        return new IntStream(new PrimitiveIterator.OfInt() {
-
-            private int current = seed;
-
-            @Override
-            public int nextInt() {
-
-                int old = current;
-                current = f.applyAsInt(current);
-
-                return old;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return true;
-            }
-        });
+        return new IntStream(new IntIterate(seed, f));
     }
 
     /**
@@ -265,33 +220,19 @@ public final class IntStream {
     public static IntStream concat(final IntStream a, final IntStream b) {
         Objects.requireNonNull(a);
         Objects.requireNonNull(b);
-
-        return new IntStream(new PrimitiveIterator.OfInt() {
-
-            private boolean firstStreamIsCurrent = true;
-
-            @Override
-            public int nextInt() {
-                return firstStreamIsCurrent ? a.iterator.nextInt() : b.iterator.nextInt();
-            }
-
-            @Override
-            public boolean hasNext() {
-                if(firstStreamIsCurrent) {
-                    if(a.iterator.hasNext())
-                        return true;
-
-                    firstStreamIsCurrent = false;
-                }
-
-                return b.iterator.hasNext();
-            }
-        });
+        IntStream result = new IntStream(new IntConcat(a.iterator, b.iterator));
+        return result.onClose(Compose.closeables(a, b));
     }
 
     private final PrimitiveIterator.OfInt iterator;
+    private final Params params;
 
     private IntStream(PrimitiveIterator.OfInt iterator) {
+        this(null, iterator);
+    }
+
+    IntStream(Params params, PrimitiveIterator.OfInt iterator) {
+        this.params = params;
         this.iterator = iterator;
     }
 
@@ -385,7 +326,7 @@ public final class IntStream {
      *         each boxed to an {@code Integer}
      */
     public Stream<Integer> boxed() {
-        return Stream.of(iterator);
+        return new Stream<Integer>(params, iterator);
     }
 
     /**
@@ -406,27 +347,59 @@ public final class IntStream {
      * @return the new stream
      */
     public IntStream filter(final IntPredicate predicate) {
-        return new IntStream(new PrimitiveIterator.OfInt() {
+        return new IntStream(params, new IntFilter(iterator, predicate));
+    }
 
-            private int next;
+    /**
+     * Returns an {@code IntStream} with elements that satisfy the given {@code IndexedIntPredicate}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * predicate: (index, value) -&gt; (index + value) &gt; 6
+     * stream: [1, 2, 3, 4, 0, 11]
+     * index:  [0, 1, 2, 3, 4,  5]
+     * sum:    [1, 3, 5, 7, 4, 16]
+     * filter: [         7,    16]
+     * result: [4, 11]
+     * </pre>
+     *
+     * @param predicate  the {@code IndexedIntPredicate} used to filter elements
+     * @return the new stream
+     * @since 1.2.1
+     */
+    public IntStream filterIndexed(IndexedIntPredicate predicate) {
+        return filterIndexed(0, 1, predicate);
+    }
 
-            @Override
-            public int nextInt() {
-                return next;
-            }
-
-            @Override
-            public boolean hasNext() {
-                while(iterator.hasNext()) {
-                    next = iterator.next();
-                    if(predicate.test(next)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        });
+    /**
+     * Returns an {@code IntStream} with elements that satisfy the given {@code IndexedIntPredicate}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: 4
+     * step: 3
+     * predicate: (index, value) -&gt; (index + value) &gt; 15
+     * stream: [1, 2,  3,  4,  0, 11]
+     * index:  [4, 7, 10, 13, 16, 19]
+     * sum:    [5, 9, 13, 17, 16, 30]
+     * filter: [          17, 16, 30]
+     * result: [4, 0, 11]
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param predicate  the {@code IndexedIntPredicate} used to filter elements
+     * @return the new stream
+     * @since 1.2.1
+     */
+    public IntStream filterIndexed(int from, int step, IndexedIntPredicate predicate) {
+        return new IntStream(params, new IntFilterIndexed(
+                new PrimitiveIndexedIterator.OfInt(from, step, iterator),
+                predicate));
     }
 
     /**
@@ -461,17 +434,55 @@ public final class IntStream {
      * @return the new {@code IntStream}
      */
     public IntStream map(final IntUnaryOperator mapper) {
-        return new IntStream(new PrimitiveIterator.OfInt() {
-            @Override
-            public int nextInt() {
-                return mapper.applyAsInt(iterator.nextInt());
-            }
+        return new IntStream(params, new IntMap(iterator, mapper));
+    }
 
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-        });
+    /**
+     * Returns an {@code IntStream} with elements that obtained by applying the given {@code IntBinaryOperator}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * mapper: (index, value) -&gt; (index * value)
+     * stream: [1, 2, 3,  4]
+     * index:  [0, 1, 2,  3]
+     * result: [0, 2, 6, 12]
+     * </pre>
+     *
+     * @param mapper  the mapper function used to apply to each element
+     * @return the new stream
+     * @since 1.2.1
+     */
+    public IntStream mapIndexed(IntBinaryOperator mapper) {
+        return mapIndexed(0, 1, mapper);
+    }
+
+    /**
+     * Returns an {@code IntStream} with elements that obtained by applying the given {@code IntBinaryOperator}.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * from: -2
+     * step: 2
+     * mapper: (index, value) -&gt; (index * value)
+     * stream: [ 1, 2, 3,  4]
+     * index:  [-2, 0, 2,  4]
+     * result: [-2, 0, 6, 16]
+     * </pre>
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param mapper  the mapper function used to apply to each element
+     * @return the new stream
+     * @since 1.2.1
+     */
+    public IntStream mapIndexed(int from, int step, IntBinaryOperator mapper) {
+        return new IntStream(params, new IntMapIndexed(
+                new PrimitiveIndexedIterator.OfInt(from, step, iterator),
+                mapper));
     }
 
     /**
@@ -485,18 +496,7 @@ public final class IntStream {
      * @return the new {@code Stream}
      */
     public <R> Stream<R> mapToObj(final IntFunction<? extends R> mapper) {
-        return Stream.of(new LsaIterator<R>() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public R nextIteration() {
-                return mapper.apply(iterator.nextInt());
-            }
-        });
+        return new Stream<R>(params, new IntMapToObj<R>(iterator, mapper));
     }
 
     /**
@@ -511,18 +511,7 @@ public final class IntStream {
      * @see #flatMap(com.annimon.stream.function.IntFunction)
      */
     public LongStream mapToLong(final IntToLongFunction mapper) {
-        return LongStream.of(new PrimitiveIterator.OfLong() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public long nextLong() {
-                return mapper.applyAsLong(iterator.nextInt());
-            }
-        });
+        return new LongStream(params, new IntMapToLong(iterator, mapper));
     }
 
     /**
@@ -537,18 +526,7 @@ public final class IntStream {
      * @see #flatMap(com.annimon.stream.function.IntFunction)
      */
     public DoubleStream mapToDouble(final IntToDoubleFunction mapper) {
-        return DoubleStream.of(new PrimitiveIterator.OfDouble() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public double nextDouble() {
-                return mapper.applyAsDouble(iterator.nextInt());
-            }
-        });
+        return new DoubleStream(params, new IntMapToDouble(iterator, mapper));
     }
 
     /**
@@ -571,37 +549,7 @@ public final class IntStream {
      * @see Stream#flatMap(Function)
      */
     public IntStream flatMap(final IntFunction<? extends IntStream> mapper) {
-        return new IntStream(new PrimitiveIterator.OfInt() {
-
-            private PrimitiveIterator.OfInt inner;
-
-            @Override
-            public int nextInt() {
-                if (inner == null) {
-                    throw new NoSuchElementException();
-                }
-                return inner.nextInt();
-            }
-
-            @Override
-            public boolean hasNext() {
-                if (inner != null && inner.hasNext()) {
-                    return true;
-                }
-                while (iterator.hasNext()) {
-                    final int arg = iterator.next();
-                    final IntStream result = mapper.apply(arg);
-                    if (result == null) {
-                        continue;
-                    }
-                    if (result.iterator.hasNext()) {
-                        inner = result.iterator;
-                        return true;
-                    }
-                }
-                return false;
-            }
-        });
+        return new IntStream(params, new IntFlatMap(iterator, mapper));
     }
 
     /**
@@ -638,23 +586,7 @@ public final class IntStream {
      * @return the new stream
      */
     public IntStream sorted() {
-        return new IntStream(new PrimitiveExtIterator.OfInt() {
-
-            private int index = 0;
-            private int[] array;
-
-            @Override
-            protected void nextIteration() {
-                if (!isInit) {
-                    array = toArray();
-                    Arrays.sort(array);
-                }
-                hasNext = index < array.length;
-                if (hasNext) {
-                    next = array[index++];
-                }
-            }
-        });
+        return new IntStream(params, new IntSorted(iterator));
     }
 
     /**
@@ -696,24 +628,7 @@ public final class IntStream {
     public IntStream sample(final int stepWidth) {
         if (stepWidth <= 0) throw new IllegalArgumentException("stepWidth cannot be zero or negative");
         if (stepWidth == 1) return this;
-        return new IntStream(new PrimitiveIterator.OfInt() {
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public int nextInt() {
-                final int result = iterator.nextInt();
-                int skip = 1;
-                while (skip < stepWidth && iterator.hasNext()) {
-                    iterator.nextInt();
-                    skip++;
-                }
-                return result;
-            }
-        });
+        return new IntStream(params, new IntSample(iterator, stepWidth));
     }
 
     /**
@@ -727,23 +642,63 @@ public final class IntStream {
      * @return the new stream
      */
     public IntStream peek(final IntConsumer action) {
-        return new IntStream(new PrimitiveIterator.OfInt() {
-            @Override
-            public int nextInt() {
-                int value = iterator.nextInt();
-                action.accept(value);
-                return value;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-        });
+        return new IntStream(params, new IntPeek(iterator, action));
     }
 
     /**
-     * Takes elements while the predicate is true.
+     * Returns a {@code IntStream} produced by iterative application of a accumulation function
+     * to reduction value and next element of the current stream.
+     * Produces a {@code IntStream} consisting of {@code value1}, {@code acc(value1, value2)},
+     * {@code acc(acc(value1, value2), value3)}, etc.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * accumulator: (a, b) -&gt; a + b
+     * stream: [1, 2, 3, 4, 5]
+     * result: [1, 3, 6, 10, 15]
+     * </pre>
+     *
+     * @param accumulator  the accumulation function
+     * @return the new stream
+     * @throws NullPointerException if {@code accumulator} is null
+     * @since 1.1.6
+     */
+    public IntStream scan(final IntBinaryOperator accumulator) {
+        Objects.requireNonNull(accumulator);
+        return new IntStream(params, new IntScan(iterator, accumulator));
+    }
+
+    /**
+     * Returns a {@code IntStream} produced by iterative application of a accumulation function
+     * to an initial element {@code identity} and next element of the current stream.
+     * Produces a {@code IntStream} consisting of {@code identity}, {@code acc(identity, value1)},
+     * {@code acc(acc(identity, value1), value2)}, etc.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * identity: 0
+     * accumulator: (a, b) -&gt; a + b
+     * stream: [1, 2, 3, 4, 5]
+     * result: [0, 1, 3, 6, 10, 15]
+     * </pre>
+     *
+     * @param identity  the initial value
+     * @param accumulator  the accumulation function
+     * @return the new stream
+     * @throws NullPointerException if {@code accumulator} is null
+     * @since 1.1.6
+     */
+    public IntStream scan(final int identity, final IntBinaryOperator accumulator) {
+        Objects.requireNonNull(accumulator);
+        return new IntStream(params, new IntScanIdentity(iterator, identity, accumulator));
+    }
+
+    /**
+     * Takes elements while the predicate returns {@code true}.
      *
      * <p>This is an intermediate operation.
      *
@@ -758,13 +713,29 @@ public final class IntStream {
      * @return the new {@code IntStream}
      */
     public IntStream takeWhile(final IntPredicate predicate) {
-        return new IntStream(new PrimitiveExtIterator.OfInt() {
+        return new IntStream(params, new IntTakeWhile(iterator, predicate));
+    }
 
-            @Override
-            protected void nextIteration() {
-                hasNext = iterator.hasNext() && predicate.test(next = iterator.next());
-            }
-        });
+    /**
+     * Takes elements while the predicate returns {@code false}.
+     * Once predicate condition is satisfied by an element, the stream
+     * finishes with this element.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * stopPredicate: (a) -&gt; a &gt; 2
+     * stream: [1, 2, 3, 4, 1, 2, 3, 4]
+     * result: [1, 2, 3]
+     * </pre>
+     *
+     * @param stopPredicate  the predicate used to take elements
+     * @return the new {@code IntStream}
+     * @since 1.1.6
+     */
+    public IntStream takeUntil(final IntPredicate stopPredicate) {
+        return new IntStream(params, new IntTakeUntil(iterator, stopPredicate));
     }
 
     /**
@@ -783,26 +754,7 @@ public final class IntStream {
      * @return the new {@code IntStream}
      */
     public IntStream dropWhile(final IntPredicate predicate) {
-        return new IntStream(new PrimitiveExtIterator.OfInt() {
-
-            @Override
-            protected void nextIteration() {
-                if (!isInit) {
-                    // Skip first time
-                    while (hasNext = iterator.hasNext()) {
-                        next = iterator.next();
-                        if (!predicate.test(next)) {
-                            return;
-                        }
-                    }
-                }
-
-                hasNext = hasNext && iterator.hasNext();
-                if (!hasNext) return;
-
-                next = iterator.next();
-            }
-        });
+        return new IntStream(params, new IntDropWhile(iterator, predicate));
     }
 
     /**
@@ -833,21 +785,7 @@ public final class IntStream {
         if (maxSize == 0) {
             return IntStream.empty();
         }
-        return new IntStream(new PrimitiveIterator.OfInt() {
-
-            private long index = 0;
-
-            @Override
-            public int nextInt() {
-                index++;
-                return iterator.nextInt();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return (index < maxSize) && iterator.hasNext();
-            }
-        });
+        return new IntStream(params, new IntLimit(iterator, maxSize));
     }
 
     /**
@@ -874,33 +812,13 @@ public final class IntStream {
      * @throws IllegalArgumentException if {@code n} is negative
      */
     public IntStream skip(final long n) {
-        if(n < 0)
+        if (n < 0) {
             throw new IllegalArgumentException("n cannot be negative");
-
-        if(n == 0)
+        } else if (n == 0) {
             return this;
-        else
-            return new IntStream(new PrimitiveIterator.OfInt() {
-                long skipped = 0;
-                @Override
-                public int nextInt() {
-                    return iterator.nextInt();
-                }
-
-                @Override
-                public boolean hasNext() {
-
-                    while(iterator.hasNext()) {
-
-                        if(skipped == n) break;
-
-                        skipped++;
-                        iterator.nextInt();
-                    }
-
-                    return iterator.hasNext();
-                }
-            });
+        } else {
+            return new IntStream(params, new IntSkip(iterator, n));
+        }
     }
 
     /**
@@ -913,6 +831,36 @@ public final class IntStream {
     public void forEach(IntConsumer action) {
         while(iterator.hasNext()) {
             action.accept(iterator.nextInt());
+        }
+    }
+
+    /**
+     * Performs the given indexed action on each element.
+     *
+     * <p>This is a terminal operation.
+     *
+     * @param action  the action to be performed on each element
+     * @since 1.2.1
+     */
+    public void forEachIndexed(IndexedIntConsumer action) {
+        forEachIndexed(0, 1, action);
+    }
+
+    /**
+     * Performs the given indexed action on each element.
+     *
+     * <p>This is a terminal operation.
+     *
+     * @param from  the initial value of the index (inclusive)
+     * @param step  the step of the index
+     * @param action  the action to be performed on each element
+     * @since 1.2.1
+     */
+    public void forEachIndexed(int from, int step, IndexedIntConsumer action) {
+        int index = from;
+        while (iterator.hasNext()) {
+            action.accept(index, iterator.nextInt());
+            index += step;
         }
     }
 
@@ -991,11 +939,7 @@ public final class IntStream {
      * @return an array containing the elements of this stream
      */
     public int[] toArray() {
-        SpinedBuffer.OfInt b = new SpinedBuffer.OfInt();
-
-        forEach(b);
-
-        return b.asPrimitiveArray();
+        return Operators.toIntArray(iterator);
     }
 
     /**
@@ -1192,11 +1136,30 @@ public final class IntStream {
      *         or an empty {@code OptionalInt} if the stream is empty
      */
     public OptionalInt findFirst() {
-        if(iterator.hasNext()) {
+        if (iterator.hasNext()) {
             return OptionalInt.of(iterator.nextInt());
         } else {
             return OptionalInt.empty();
         }
+    }
+
+    /**
+     * Returns the last element wrapped by {@code OptionalInt} class.
+     * If stream is empty, returns {@code OptionalInt.empty()}.
+     *
+     * <p>This is a short-circuiting terminal operation.
+     *
+     * @return an {@code OptionalInt} with the last element
+     *         or {@code OptionalInt.empty()} if the stream is empty
+     * @since 1.1.8
+     */
+    public OptionalInt findLast() {
+        return reduce(new IntBinaryOperator() {
+            @Override
+            public int applyAsInt(int left, int right) {
+                return right;
+            }
+        });
     }
 
     /**
@@ -1225,7 +1188,7 @@ public final class IntStream {
      */
     public int single() {
         if (iterator.hasNext()) {
-            int singleCandidate = iterator.next();
+            int singleCandidate = iterator.nextInt();
             if (iterator.hasNext()) {
                 throw new IllegalStateException("IntStream contains more than one element");
             } else {
@@ -1261,7 +1224,7 @@ public final class IntStream {
      */
     public OptionalInt findSingle() {
         if (iterator.hasNext()) {
-            int singleCandidate = iterator.next();
+            int singleCandidate = iterator.nextInt();
             if (iterator.hasNext()) {
                 throw new IllegalStateException("IntStream contains more than one element");
             } else {
@@ -1269,6 +1232,44 @@ public final class IntStream {
             }
         } else {
             return OptionalInt.empty();
+        }
+    }
+
+    /**
+     * Adds close handler to the current stream.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param closeHandler  an action to execute when the stream is closed
+     * @return the new stream with the close handler
+     * @since 1.1.8
+     */
+    public IntStream onClose(final Runnable closeHandler) {
+        Objects.requireNonNull(closeHandler);
+        final Params newParams;
+        if (params == null) {
+            newParams = new Params();
+            newParams.closeHandler = closeHandler;
+        } else {
+            newParams = params;
+            final Runnable firstHandler = newParams.closeHandler;
+            newParams.closeHandler = Compose.runnables(firstHandler, closeHandler);
+        }
+        return new IntStream(newParams, iterator);
+    }
+
+    /**
+     * Causes close handler to be invoked if it exists.
+     * Since most of the stream providers are lists or arrays,
+     * it is not necessary to close the stream.
+     *
+     * @since 1.1.8
+     */
+    @Override
+    public void close() {
+        if (params != null && params.closeHandler != null) {
+            params.closeHandler.run();
+            params.closeHandler = null;
         }
     }
 
