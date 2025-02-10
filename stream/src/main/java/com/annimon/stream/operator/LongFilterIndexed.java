@@ -4,6 +4,7 @@ import com.annimon.stream.function.IndexedLongPredicate;
 import com.annimon.stream.iterator.PrimitiveIndexedIterator;
 import com.annimon.stream.iterator.PrimitiveIterator;
 import java.util.NoSuchElementException;
+import org.jetbrains.annotations.NotNull;
 
 public class LongFilterIndexed extends PrimitiveIterator.OfLong {
 
@@ -12,7 +13,9 @@ public class LongFilterIndexed extends PrimitiveIterator.OfLong {
     private boolean hasNext, hasNextEvaluated;
     private long next;
 
-    public LongFilterIndexed(PrimitiveIndexedIterator.OfLong iterator, IndexedLongPredicate predicate) {
+    public LongFilterIndexed(
+            @NotNull PrimitiveIndexedIterator.OfLong iterator,
+            @NotNull IndexedLongPredicate predicate) {
         this.iterator = iterator;
         this.predicate = predicate;
     }
@@ -41,7 +44,7 @@ public class LongFilterIndexed extends PrimitiveIterator.OfLong {
     private void nextIteration() {
         while (iterator.hasNext()) {
             final int index = iterator.getIndex();
-            next = iterator.next();
+            next = iterator.nextLong();
             if (predicate.test(index, next)) {
                 hasNext = true;
                 return;

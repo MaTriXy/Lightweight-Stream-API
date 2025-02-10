@@ -12,12 +12,14 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalBooleanMatcher.hasValue;
 import static com.annimon.stream.test.hamcrest.OptionalBooleanMatcher.isEmpty;
 import static com.annimon.stream.test.hamcrest.OptionalBooleanMatcher.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.*;
 
 /**
  * Tests for {@link OptionalBoolean}
  */
+@SuppressWarnings("ConstantConditions")
 public class OptionalBooleanTest {
 
     @Test
@@ -36,6 +38,7 @@ public class OptionalBooleanTest {
         assertThat(OptionalBoolean.ofNullable(null), isEmpty());
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test(expected = NoSuchElementException.class)
     public void testGetOnEmptyOptional() {
         OptionalBoolean.empty().getAsBoolean();
@@ -83,8 +86,9 @@ public class OptionalBooleanTest {
         });
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testIfPresentOrElseWhenValueAbsent() {
+        final boolean[] data = { false };
         OptionalBoolean.empty().ifPresentOrElse(new BooleanConsumer() {
             @Override
             public void accept(boolean value) {
@@ -93,9 +97,10 @@ public class OptionalBooleanTest {
         }, new Runnable() {
             @Override
             public void run() {
-                throw new RuntimeException();
+                data[0] = true;
             }
         });
+        assertTrue(data[0]);
     }
 
     @Test
@@ -162,15 +167,17 @@ public class OptionalBooleanTest {
                 });
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testExecuteIfAbsent() {
+        final boolean[] data = { false };
         OptionalBoolean.empty()
                 .executeIfAbsent(new Runnable() {
                     @Override
                     public void run() {
-                        throw new RuntimeException();
+                        data[0] = true;
                     }
                 });
+        assertTrue(data[0]);
     }
 
     @Test
@@ -218,6 +225,7 @@ public class OptionalBooleanTest {
     @Test
     public void testFilter() {
         final BooleanPredicate predicate = new BooleanPredicate() {
+            @SuppressWarnings("PointlessBooleanExpression")
             @Override
             public boolean test(boolean value) {
                 return value || false;
@@ -240,6 +248,7 @@ public class OptionalBooleanTest {
     @Test
     public void testFilterNot() {
         final BooleanPredicate predicate = new BooleanPredicate() {
+            @SuppressWarnings("PointlessBooleanExpression")
             @Override
             public boolean test(boolean value) {
                 return value || false;
@@ -339,6 +348,11 @@ public class OptionalBooleanTest {
 
     @Test
     public void testOrElse() {
+        assertTrue(OptionalBoolean.of(true).orElse(false));
+    }
+
+    @Test
+    public void testOrElseOnEmptyOptional() {
         assertTrue(OptionalBoolean.empty().orElse(true));
         assertFalse(OptionalBoolean.empty().orElse(false));
     }
@@ -366,6 +380,7 @@ public class OptionalBooleanTest {
         assertTrue(value);
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test(expected = NoSuchElementException.class)
     public void testOrElseThrowOnEmptyOptional() {
         OptionalBoolean.empty().orElseThrow();
@@ -395,7 +410,7 @@ public class OptionalBooleanTest {
         });
     }
 
-    @SuppressWarnings("EqualsBetweenInconvertibleTypes")
+    @SuppressWarnings("AssertBetweenInconvertibleTypes")
     @Test
     public void testEquals() {
         assertEquals(OptionalBoolean.empty(), OptionalBoolean.empty());
@@ -428,8 +443,9 @@ public class OptionalBooleanTest {
 
     @Test
     public void testToString() {
-        assertEquals(OptionalBoolean.empty().toString(), "OptionalBoolean.empty");
-        assertEquals(OptionalBoolean.of(true).toString(), "OptionalBoolean[true]");
+        assertEquals("OptionalBoolean.empty", OptionalBoolean.empty().toString());
+        assertEquals("OptionalBoolean[false]", OptionalBoolean.of(false).toString());
+        assertEquals("OptionalBoolean[true]", OptionalBoolean.of(true).toString());
     }
 
 }

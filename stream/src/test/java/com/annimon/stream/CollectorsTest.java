@@ -1,15 +1,7 @@
 package com.annimon.stream;
 
-import com.annimon.stream.function.BinaryOperator;
-import com.annimon.stream.function.Function;
-import com.annimon.stream.function.IntSupplier;
-import com.annimon.stream.function.Predicate;
-import com.annimon.stream.function.Supplier;
-import com.annimon.stream.function.ToDoubleFunction;
-import com.annimon.stream.function.ToIntFunction;
-import com.annimon.stream.function.ToLongFunction;
-import com.annimon.stream.function.UnaryOperator;
-import static com.annimon.stream.test.hamcrest.CommonMatcher.hasOnlyPrivateConstructors;
+import com.annimon.stream.function.*;
+import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -17,21 +9,22 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.function.ThrowingRunnable;
+import static com.annimon.stream.test.hamcrest.CommonMatcher.hasOnlyPrivateConstructors;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 /**
  * Tests {@code Collectors}.
  *
  * @see com.annimon.stream.Collectors
  */
+@SuppressWarnings("ConstantConditions")
 public class CollectorsTest {
-
-    @Rule
-    public final ExpectedException expectedException = ExpectedException.none();
 
     @Test
     public void testToCollection() {
@@ -76,9 +69,8 @@ public class CollectorsTest {
         } catch (UnsupportedOperationException expected) { }
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void testToUnmodifiableListWithNullValues() {
-        expectedException.expect(NullPointerException.class);
         Stream.of(0, 1, null, 3, 4, null)
                 .collect(Collectors.toUnmodifiableList());
     }
@@ -107,9 +99,8 @@ public class CollectorsTest {
         } catch (UnsupportedOperationException expected) { }
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void testToUnmodifiableSetWithNullValues() {
-        expectedException.expect(NullPointerException.class);
         Stream.of(0, 1, null, 3, 4, null)
                 .collect(Collectors.toUnmodifiableSet());
     }
@@ -151,9 +142,8 @@ public class CollectorsTest {
         ));
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void testToMapWithValueMapperThatReturnsNullValue() {
-        expectedException.expect(NullPointerException.class);
         final Function<String, Character> keyMapper = Functions.firstCharacterExtractor();
         Stream.of("a0", "b0", "c0", "d0")
                 .collect(Collectors.toMap(keyMapper, new UnaryOperator<String>() {
@@ -168,25 +158,39 @@ public class CollectorsTest {
 
     @Test
     public void testToMapWithDefaultValueMapperAndDuplicatingKeys() {
-        expectedException.expect(IllegalStateException.class);
-        expectedException.expectMessage("Duplicate key a (attempted merging values a0 and a2)");
-        Stream.of("a0", "b1", "a2", "d3")
-                .collect(Collectors.toMap(Functions.firstCharacterExtractor()));
+        IllegalStateException exc =  assertThrows(
+                IllegalStateException.class,
+                new ThrowingRunnable() {
+                    @Override
+                    public void run() {
+                        Stream.of("a0", "b1", "a2", "d3")
+                                .collect(Collectors.toMap(Functions.firstCharacterExtractor()));
+                    }
+                }
+        );
+        assertEquals("Duplicate key a (attempted merging values a0 and a2)", exc.getMessage());
+
     }
 
     @Test
     public void testToUnmodifiableMapDuplicatingKeys() {
-        expectedException.expect(IllegalStateException.class);
-        expectedException.expectMessage("Duplicate key a (attempted merging values a0 and a2)");
-        final Function<String, Character> keyMapper = Functions.firstCharacterExtractor();
-        final UnaryOperator<String> valueMapper = UnaryOperator.Util.identity();
-        Stream.of("a0", "b1", "a2", "d3")
-                .collect(Collectors.toUnmodifiableMap(keyMapper, valueMapper));
+        IllegalStateException exc =  assertThrows(
+                IllegalStateException.class,
+                new ThrowingRunnable() {
+                    @Override
+                    public void run() {
+                        final Function<String, Character> keyMapper = Functions.firstCharacterExtractor();
+                        final UnaryOperator<String> valueMapper = UnaryOperator.Util.identity();
+                        Stream.of("a0", "b1", "a2", "d3")
+                                .collect(Collectors.toUnmodifiableMap(keyMapper, valueMapper));
+                    }
+                }
+        );
+        assertEquals("Duplicate key a (attempted merging values a0 and a2)", exc.getMessage());
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void testToUnmodifiableMapWithNullKey() {
-        expectedException.expect(NullPointerException.class);
         final Function<String, Character> keyMapper = Functions.firstCharacterExtractor();
         final UnaryOperator<String> valueMapper = new UnaryOperator<String>() {
             @Override
@@ -199,9 +203,8 @@ public class CollectorsTest {
                 .collect(Collectors.toUnmodifiableMap(keyMapper, valueMapper));
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void testToUnmodifiableMapWithNullValue() {
-        expectedException.expect(NullPointerException.class);
         final Function<String, Character> keyMapper = Functions.firstCharacterExtractor();
         final UnaryOperator<String> valueMapper = new UnaryOperator<String>() {
             @Override
@@ -312,9 +315,8 @@ public class CollectorsTest {
         } catch (UnsupportedOperationException expected) { }
     }
 
-    @Test
+    @Test(expected = NullPointerException.class)
     public void testToUnmodifiableMapWithMergerFunctionAndNullKey() {
-        expectedException.expect(NullPointerException.class);
         final Function<String, Character> keyMapper = Functions.firstCharacterExtractor();
         final UnaryOperator<String> valueMapper = new UnaryOperator<String>() {
             @Override
@@ -649,6 +651,7 @@ public class CollectorsTest {
         )));
     }
 
+    @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Test
     public void testGroupingByStudentCourse() {
         Map<Integer, List<Student>> byCourse = Stream.of(Students.ALL)
@@ -699,7 +702,7 @@ public class CollectorsTest {
     @Test
     public void testPartitioningByStudentCourse() {
         Map<Boolean, List<Student>> byCourse = Stream.of(Students.ALL)
-                .collect(Collectors.partitioningBy​(new Predicate<Student>() {
+                .collect(Collectors.partitioningBy(new Predicate<Student>() {
                     @Override
                     public boolean test(Student student) {
                         return student.getCourse() == 2;
@@ -719,7 +722,7 @@ public class CollectorsTest {
     @Test
     public void testPartitioningByStudentCourseToNames() {
         Map<Boolean, String> byCourse = Stream.of(Students.ALL)
-                .collect(Collectors.partitioningBy​(new Predicate<Student>() {
+                .collect(Collectors.partitioningBy(new Predicate<Student>() {
                     @Override
                     public boolean test(Student student) {
                         return student.getCourse() > 2;
@@ -768,23 +771,20 @@ public class CollectorsTest {
                         Collectors.mapping(Students.studentName, Collectors.<String>toSet())));
 
         assertThat(namesBySpeciality.get("Economics"),
-                containsInAnyOrder(new String[] {
-                    Students.MARIA_ECONOMICS_1.getName(),
-                    Students.SERGEY_ECONOMICS_2.getName(),
-                    Students.SOPHIA_ECONOMICS_2.getName()
-                }));
+                containsInAnyOrder(
+                        Students.MARIA_ECONOMICS_1.getName(),
+                        Students.SERGEY_ECONOMICS_2.getName(),
+                        Students.SOPHIA_ECONOMICS_2.getName()));
         assertThat(namesBySpeciality.get("CS"),
-                containsInAnyOrder(new String[] {
-                    Students.STEVE_CS_4.getName(),
-                    Students.VICTORIA_CS_3.getName(),
-                    Students.JOHN_CS_2.getName(),
-                    Students.MARIA_CS_1.getName()
-                }));
+                containsInAnyOrder(
+                        Students.STEVE_CS_4.getName(),
+                        Students.VICTORIA_CS_3.getName(),
+                        Students.JOHN_CS_2.getName(),
+                        Students.MARIA_CS_1.getName()));
         assertThat(namesBySpeciality.get("Law"),
-                containsInAnyOrder(new String[] {
-                    Students.GEORGE_LAW_3.getName(),
-                    Students.SERGEY_LAW_1.getName()
-                }));
+                containsInAnyOrder(
+                        Students.GEORGE_LAW_3.getName(),
+                        Students.SERGEY_LAW_1.getName()));
     }
 
     @Test
@@ -834,6 +834,47 @@ public class CollectorsTest {
                         })
         );
         assertThat(result, instanceOf(LinkedList.class));
+    }
+
+    @Test
+    public void testTeeingAverage() {
+        final ToIntFunction<Integer> toInt = new ToIntFunction<Integer>() {
+            @Override
+            public int applyAsInt(Integer t) {
+                return t;
+            }
+        };
+
+        double result = Stream.of(1, 2, 3, 4, 5)
+                .collect(Collectors.teeing(
+                        Collectors.summingInt(toInt),
+                        Collectors.<Integer>counting(),
+                        new BiFunction<Integer, Long, Double>() {
+                            @Override
+                            public Double apply(Integer sum, Long count) {
+                                return sum / count.doubleValue();
+                            }
+                        }
+                ));
+        assertThat(result, closeTo(3, 0.01));
+    }
+
+    @Test
+    public void testTeeingMultipleContainers() {
+        Map.Entry<List<Integer>, Set<Integer>> result = Stream.of(1, 2, 2, 3, 4, 1, 3, 5)
+                .collect(Collectors.teeing(
+                        Collectors.<Integer>toList(),
+                        Collectors.<Integer>toSet(),
+                        new BiFunction<List<Integer>, Set<Integer>, Map.Entry<List<Integer>, Set<Integer>>>() {
+                            @Override
+                            public Map.Entry<List<Integer>, Set<Integer>> apply(
+                                    List<Integer> value1, Set<Integer> value2) {
+                                return new AbstractMap.SimpleEntry<List<Integer>, Set<Integer>>(value1, value2);
+                            }
+                        }
+                ));
+        assertThat(result.getKey(), contains(1, 2, 2, 3, 4, 1, 3, 5));
+        assertThat(result.getValue(), containsInAnyOrder(1, 2, 3, 4, 5));
     }
 
     @Test

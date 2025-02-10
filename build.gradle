@@ -1,41 +1,127 @@
 // Plugins
 plugins {
-    id "net.saliman.cobertura" version "2.2.6"
-    id "com.github.kt3k.coveralls" version "2.8.1"
-    id "me.champeau.gradle.jmh" version "0.4.4"
+    id 'jacoco'
+    id "com.github.kt3k.coveralls" version "2.10.2"
+    id "me.champeau.gradle.jmh" version "0.5.2"
+    id "org.sonarqube" version "3.0"
 }
+
+def publishedProjects = subprojects.findAll { it.path != ':test' }
+def jacocoExclusions = [
+        '.*com/annimon/stream/internal/Compat.*',
+        '**/com/annimon/stream/internal/Compat**',
+        '.*com/annimon/stream/test/hamcrest/CommonMatcher.*',
+        'com/annimon/stream/test/hamcrest/CommonMatcher**'
+]
 
 allprojects {
     repositories {
         mavenCentral()
     }
-}
 
-subprojects {
-    apply plugin: 'net.saliman.cobertura'
-    cobertura {
-        coverageFormats = ['html', 'xml']
+    apply plugin: 'jacoco'
+    apply plugin: 'java'
+
+    jacoco {
+        toolVersion = '0.8.5'
     }
 }
 
-cobertura {
-    coverageFormats = ['html', 'xml']
-    coverageExcludes = ['.*com\\.annimon\\.stream\\.internal\\.Compat.*', '.*com\\.annimon\\.stream\\.test\\.hamcrest\\.CommonMatcher.*']
-    coverageReportDatafile = file("build/cobertura/cobertura.ser")
-    coverageReportDir = file("build/reports/coverage")
-    coverageSourceDirs = subprojects.sourceSets.main.allSource.srcDirs.flatten()
-    coverageMergeDatafiles = subprojects.collect { file("${it.buildDir}/cobertura/cobertura.ser") }
-    coverageDirs = subprojects.sourceSets.main.output.classesDirs.collect { it.getFiles() }
+subprojects {
+    jacocoTestCoverageVerification {
+        afterEvaluate {
+            getClassDirectories().setFrom(files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: jacocoExclusions)
+            }))
+        }
+    }
+    check.dependsOn jacocoTestCoverageVerification
+
+    jacocoTestReport {
+        getAdditionalSourceDirs().setFrom(files(sourceSets.main.allSource.srcDirs))
+        getClassDirectories().setFrom(files(sourceSets.main.output))
+        getSourceDirectories().setFrom(files(sourceSets.main.allSource.srcDirs))
+
+        reports {
+            xml.enabled true
+            html.enabled true
+            html.destination(file("${buildDir}/reports/jacoco"))
+        }
+
+        afterEvaluate {
+            getClassDirectories().setFrom(files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: jacocoExclusions)
+            }))
+        }
+    }
+
+    task jacocoMerge(type: JacocoMerge) {
+        publishedProjects.each { subproject ->
+            executionData subproject.tasks
+        }
+    }
+
+    task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
+        description = 'Generates an aggregate report from all subprojects'
+        dependsOn publishedProjects.test, jacocoMerge
+
+        getAdditionalSourceDirs().setFrom(files(publishedProjects.sourceSets.main.allSource.srcDirs))
+        getClassDirectories().setFrom(files(publishedProjects.sourceSets.main.output))
+        getSourceDirectories().setFrom(files(publishedProjects.sourceSets.main.allSource.srcDirs))
+        getExecutionData().setFrom(files(publishedProjects.jacocoTestReport.executionData))
+
+        reports {
+            xml.enabled true
+            html.enabled true
+            html.destination(file("${buildDir}/reports/jacoco"))
+        }
+
+        doFirst {
+            getExecutionData().setFrom(files(getExecutionData().findAll {
+                it.exists()
+            }))
+        }
+    }
+
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        archiveClassifier.set('sources')
+        from sourceSets.main.allSource
+    }
+
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        archiveClassifier.set('javadoc')
+        from javadoc.destinationDir
+    }
+
+    artifacts {
+        archives jar
+        archives sourcesJar
+        archives javadocJar
+    }
 }
 
 coveralls {
-    coberturaReportPath = "${rootProject.buildDir}/reports/coverage/coverage.xml"
+    sourceDirs = subprojects.sourceSets.main.allSource.srcDirs.flatten()
+    jacocoReportPath = "stream/build/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
 }
 
-test.dependsOn(rootProject.subprojects.collect { ":${it.name}:cobertura" })
+test.dependsOn(rootProject.subprojects.collect { ":${it.name}:jacocoRootReport" })
 
 tasks.coveralls {
-    dependsOn coberturaReport
+    group = 'Coverage reports'
+    description = 'Uploads the aggregated coverage report to Coveralls'
+
+    onlyIf { System.env.'CI' }
+}
+
+sonarqube {
+    properties {
+        property "sonar.projectName", "Lightweight-Stream-API"
+        property "sonar.projectKey", "lightweight-stream-api"
+        property "sonar.host.url", "https://sonarcloud.io"
+        property 'sonar.jacoco.reportPath', "stream/build/jacoco/jacocoMerge.exec"
+        property 'sonar.coverage.exclusions', jacocoExclusions
+    }
 }
 
 /*allprojects {

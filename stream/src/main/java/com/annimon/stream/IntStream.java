@@ -4,18 +4,23 @@ import com.annimon.stream.function.*;
 import com.annimon.stream.internal.Compose;
 import com.annimon.stream.internal.Operators;
 import com.annimon.stream.internal.Params;
+import com.annimon.stream.internal.SpinedBuffer;
 import com.annimon.stream.iterator.PrimitiveIndexedIterator;
 import com.annimon.stream.iterator.PrimitiveIterator;
 import com.annimon.stream.operator.*;
 import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A sequence of primitive int-valued elements supporting sequential operations. This is the {@code int}
  * primitive specialization of {@link Stream}.
  */
-@SuppressWarnings("WeakerAccess")
 public final class IntStream implements Closeable {
 
     /**
@@ -38,6 +43,7 @@ public final class IntStream implements Closeable {
      *
      * @return the empty stream
      */
+    @NotNull
     public static IntStream empty() {
         return EMPTY;
     }
@@ -49,7 +55,8 @@ public final class IntStream implements Closeable {
      * @return the new {@code IntStream}
      * @throws NullPointerException if {@code iterator} is null
      */
-    public static IntStream of(PrimitiveIterator.OfInt iterator) {
+    @NotNull
+    public static IntStream of(@NotNull PrimitiveIterator.OfInt iterator) {
         Objects.requireNonNull(iterator);
         return new IntStream(iterator);
     }
@@ -61,7 +68,8 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code values} is null
      */
-    public static IntStream of(final int... values) {
+    @NotNull
+    public static IntStream of(@NotNull final int... values) {
         Objects.requireNonNull(values);
         if (values.length == 0) {
             return IntStream.empty();
@@ -75,6 +83,7 @@ public final class IntStream implements Closeable {
      * @param t element of the stream
      * @return the new stream
      */
+    @NotNull
     public static IntStream of(final int t) {
         return new IntStream(new IntArray(new int[] { t }));
     }
@@ -91,7 +100,8 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @since 1.1.8
      */
-    public static IntStream ofCodePoints(CharSequence charSequence) {
+    @NotNull
+    public static IntStream ofCodePoints(@NotNull CharSequence charSequence) {
         return new IntStream(new IntCodePoints(charSequence));
     }
 
@@ -105,6 +115,7 @@ public final class IntStream implements Closeable {
      * @return a sequential {@code IntStream} for the range of {@code int}
      *         elements
      */
+    @NotNull
     public static IntStream range(final int startInclusive, final int endExclusive) {
         if (startInclusive >= endExclusive) {
             return empty();
@@ -122,6 +133,7 @@ public final class IntStream implements Closeable {
      * @return a sequential {@code IntStream} for the range of {@code int}
      *         elements
      */
+    @NotNull
     public static IntStream rangeClosed(final int startInclusive, final int endInclusive) {
         if (startInclusive > endInclusive) {
             return empty();
@@ -141,7 +153,8 @@ public final class IntStream implements Closeable {
      * @return a new infinite sequential {@code IntStream}
      * @throws NullPointerException if {@code s} is null
      */
-    public static IntStream generate(final IntSupplier s) {
+    @NotNull
+    public static IntStream generate(@NotNull final IntSupplier s) {
         Objects.requireNonNull(s);
         return new IntStream(new IntGenerate(s));
     }
@@ -170,7 +183,9 @@ public final class IntStream implements Closeable {
      * @return a new sequential {@code IntStream}
      * @throws NullPointerException if {@code f} is null
      */
-    public static IntStream iterate(final int seed, final IntUnaryOperator f) {
+    @NotNull
+    public static IntStream iterate(final int seed,
+                                    @NotNull final IntUnaryOperator f) {
         Objects.requireNonNull(f);
         return new IntStream(new IntIterate(seed, f));
     }
@@ -194,8 +209,11 @@ public final class IntStream implements Closeable {
      * @throws NullPointerException if {@code op} is null
      * @since 1.1.5
      */
-    public static IntStream iterate(final int seed,
-            final IntPredicate predicate, final IntUnaryOperator op) {
+    @NotNull
+    public static IntStream iterate(
+            final int seed,
+            @NotNull final IntPredicate predicate,
+            @NotNull final IntUnaryOperator op) {
         Objects.requireNonNull(predicate);
         return iterate(seed, op).takeWhile(predicate);
     }
@@ -212,17 +230,65 @@ public final class IntStream implements Closeable {
      * result:   [1, 2, 3, 4, 5, 6]
      * </pre>
      *
-     * @param a the first stream
-     * @param b the second stream
+     * @param a  the first stream
+     * @param b  the second stream
      * @return the concatenation of the two input streams
      * @throws NullPointerException if {@code a} or {@code b} is null
      */
-    public static IntStream concat(final IntStream a, final IntStream b) {
+    @NotNull
+    public static IntStream concat(
+            @NotNull final IntStream a,
+            @NotNull final IntStream b) {
         Objects.requireNonNull(a);
         Objects.requireNonNull(b);
         IntStream result = new IntStream(new IntConcat(a.iterator, b.iterator));
         return result.onClose(Compose.closeables(a, b));
     }
+
+    /**
+     * Lazily concatenates three or more streams.
+     *
+     * <p>Example:
+     * <pre>
+     * stream a: [1, 2, 3, 4]
+     * stream b: [5, 6]
+     * stream c: [7]
+     * stream d: [8, 9, 10]
+     * result:   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+     * </pre>
+     *
+     * @param a  the first stream
+     * @param b  the second stream
+     * @param rest  the rest of streams
+     * @return the new concatenated stream
+     * @throws NullPointerException if {@code a} or {@code b}
+     *         or {@code rest} is null
+     * @since 1.2.2
+     */
+    @NotNull
+    public static IntStream concat(
+            @NotNull final IntStream a,
+            @NotNull final IntStream b,
+            @NotNull final IntStream... rest) {
+        Objects.requireNonNull(a);
+        Objects.requireNonNull(b);
+        Objects.requireNonNull(rest);
+
+        final List<PrimitiveIterator.OfInt> iterators =
+                new ArrayList<PrimitiveIterator.OfInt>(rest.length + 2);
+        final List<Closeable> closeables =
+                new ArrayList<Closeable>(rest.length + 2);
+        Collections.addAll(iterators, a.iterator, b.iterator);
+        Collections.addAll(closeables, a, b);
+        for (final IntStream stream : rest) {
+            iterators.add(stream.iterator);
+            closeables.add(stream);
+        }
+
+        IntStream result = new IntStream(new IntConcat(iterators));
+        return result.onClose(Compose.closeables(closeables));
+    }
+
 
     private final PrimitiveIterator.OfInt iterator;
     private final Params params;
@@ -311,7 +377,8 @@ public final class IntStream implements Closeable {
      * @see Stream#custom(com.annimon.stream.function.Function)
      * @throws NullPointerException if {@code function} is null
      */
-    public <R> R custom(final Function<IntStream, R> function) {
+    @Nullable
+    public <R> R custom(@NotNull final Function<IntStream, R> function) {
         Objects.requireNonNull(function);
         return function.apply(this);
     }
@@ -325,8 +392,53 @@ public final class IntStream implements Closeable {
      * @return a {@code Stream} consistent of the elements of this stream,
      *         each boxed to an {@code Integer}
      */
+    @NotNull
     public Stream<Integer> boxed() {
         return new Stream<Integer>(params, iterator);
+    }
+
+    /**
+     * Prepends given {@code IntStream} to current and returns a new stream.
+     *
+     * This is similar to {@code IntStream.concat(stream, this)}
+     *
+     * <p>Example:
+     * <pre>
+     * current: [1, 2, 3]
+     * stream:  [4, 5, 6]
+     * result:  [4, 5, 6, 1, 2, 3]
+     * </pre>
+     *
+     * @param stream  the stream to prepend
+     * @return the new stream
+     * @since 1.2.2
+     * @see #concat(IntStream, IntStream)
+     */
+    @NotNull
+    public IntStream prepend(@NotNull IntStream stream) {
+        return IntStream.concat(stream, this);
+    }
+
+    /**
+     * Appends given {@code IntStream} to current and returns a new stream.
+     *
+     * This is similar to {@code IntStream.concat(this, stream)}
+     *
+     * <p>Example:
+     * <pre>
+     * current: [1, 2, 3]
+     * stream:  [4, 5, 6]
+     * result:  [1, 2, 3, 4, 5, 6]
+     * </pre>
+     *
+     * @param stream  the stream to append
+     * @return the new stream
+     * @since 1.2.2
+     * @see #concat(IntStream, IntStream)
+     */
+    @NotNull
+    public IntStream append(@NotNull IntStream stream) {
+        return IntStream.concat(this, stream);
     }
 
     /**
@@ -346,7 +458,8 @@ public final class IntStream implements Closeable {
      *                  element to determine if it should be included
      * @return the new stream
      */
-    public IntStream filter(final IntPredicate predicate) {
+    @NotNull
+    public IntStream filter(@NotNull final IntPredicate predicate) {
         return new IntStream(params, new IntFilter(iterator, predicate));
     }
 
@@ -369,7 +482,8 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @since 1.2.1
      */
-    public IntStream filterIndexed(IndexedIntPredicate predicate) {
+    @NotNull
+    public IntStream filterIndexed(@NotNull IndexedIntPredicate predicate) {
         return filterIndexed(0, 1, predicate);
     }
 
@@ -396,7 +510,9 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @since 1.2.1
      */
-    public IntStream filterIndexed(int from, int step, IndexedIntPredicate predicate) {
+    @NotNull
+    public IntStream filterIndexed(int from, int step,
+                                   @NotNull IndexedIntPredicate predicate) {
         return new IntStream(params, new IntFilterIndexed(
                 new PrimitiveIndexedIterator.OfInt(from, step, iterator),
                 predicate));
@@ -412,7 +528,8 @@ public final class IntStream implements Closeable {
      *                  element to determine if it should not be included
      * @return the new stream
      */
-    public IntStream filterNot(final IntPredicate predicate) {
+    @NotNull
+    public IntStream filterNot(@NotNull final IntPredicate predicate) {
         return filter(IntPredicate.Util.negate(predicate));
     }
 
@@ -433,7 +550,8 @@ public final class IntStream implements Closeable {
      *               each element
      * @return the new {@code IntStream}
      */
-    public IntStream map(final IntUnaryOperator mapper) {
+    @NotNull
+    public IntStream map(@NotNull final IntUnaryOperator mapper) {
         return new IntStream(params, new IntMap(iterator, mapper));
     }
 
@@ -454,7 +572,8 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @since 1.2.1
      */
-    public IntStream mapIndexed(IntBinaryOperator mapper) {
+    @NotNull
+    public IntStream mapIndexed(@NotNull IntBinaryOperator mapper) {
         return mapIndexed(0, 1, mapper);
     }
 
@@ -479,7 +598,9 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @since 1.2.1
      */
-    public IntStream mapIndexed(int from, int step, IntBinaryOperator mapper) {
+    @NotNull
+    public IntStream mapIndexed(int from, int step,
+                                @NotNull IntBinaryOperator mapper) {
         return new IntStream(params, new IntMapIndexed(
                 new PrimitiveIndexedIterator.OfInt(from, step, iterator),
                 mapper));
@@ -495,7 +616,8 @@ public final class IntStream implements Closeable {
      * @param mapper the mapper function used to apply to each element
      * @return the new {@code Stream}
      */
-    public <R> Stream<R> mapToObj(final IntFunction<? extends R> mapper) {
+    @NotNull
+    public <R> Stream<R> mapToObj(@NotNull final IntFunction<? extends R> mapper) {
         return new Stream<R>(params, new IntMapToObj<R>(iterator, mapper));
     }
 
@@ -510,7 +632,8 @@ public final class IntStream implements Closeable {
      * @since 1.1.4
      * @see #flatMap(com.annimon.stream.function.IntFunction)
      */
-    public LongStream mapToLong(final IntToLongFunction mapper) {
+    @NotNull
+    public LongStream mapToLong(@NotNull final IntToLongFunction mapper) {
         return new LongStream(params, new IntMapToLong(iterator, mapper));
     }
 
@@ -525,7 +648,8 @@ public final class IntStream implements Closeable {
      * @since 1.1.4
      * @see #flatMap(com.annimon.stream.function.IntFunction)
      */
-    public DoubleStream mapToDouble(final IntToDoubleFunction mapper) {
+    @NotNull
+    public DoubleStream mapToDouble(@NotNull final IntToDoubleFunction mapper) {
         return new DoubleStream(params, new IntMapToDouble(iterator, mapper));
     }
 
@@ -548,8 +672,51 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @see Stream#flatMap(Function)
      */
-    public IntStream flatMap(final IntFunction<? extends IntStream> mapper) {
+    @NotNull
+    public IntStream flatMap(@NotNull final IntFunction<? extends IntStream> mapper) {
         return new IntStream(params, new IntFlatMap(iterator, mapper));
+    }
+
+    /**
+     * Returns a stream consisting of the results of replacing each element of
+     * this stream with the contents of a mapped stream produced by applying
+     * the provided mapping function to each element.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param mapper  the mapper function used to apply to each element for producing replacing elements
+     * @return the new stream
+     * @since 1.2.2
+     * @see Stream#mapMulti(com.annimon.stream.function.BiConsumer)
+     * @see IntStream#flatMap(com.annimon.stream.function.IntFunction)
+     */
+    @NotNull
+    public IntStream mapMulti(@NotNull final IntStream.IntMapMultiConsumer mapper) {
+        return flatMap(new IntFunction<IntStream>() {
+            @Override
+            public IntStream apply(int value) {
+                SpinedBuffer.OfInt buffer = new SpinedBuffer.OfInt();
+                mapper.accept(value, buffer);
+                return IntStream.of(buffer.iterator());
+            }
+        });
+    }
+
+    /**
+     * Represents an operation on two input arguments.
+     *
+     * @since 1.2.2
+     * @see #mapMulti(com.annimon.stream.IntStream.IntMapMultiConsumer)
+     */
+    public interface IntMapMultiConsumer {
+        /**
+         * Replaces the given {@code value} with zero or more values
+         * by feeding the mapped values to the {@code consumer} consumer.
+         *
+         * @param value  the int value coming from upstream
+         * @param consumer  an {@code IntConsumer} accepting the mapped values
+         */
+        void accept(int value, IntConsumer consumer);
     }
 
     /**
@@ -565,6 +732,7 @@ public final class IntStream implements Closeable {
      *
      * @return the new stream
      */
+    @NotNull
     public IntStream distinct() {
         // While functional and quick to implement, this approach is not very efficient.
         // An efficient version requires an int-specific map/set implementation.
@@ -585,6 +753,7 @@ public final class IntStream implements Closeable {
      *
      * @return the new stream
      */
+    @NotNull
     public IntStream sorted() {
         return new IntStream(params, new IntSorted(iterator));
     }
@@ -604,7 +773,8 @@ public final class IntStream implements Closeable {
      * @param comparator  the {@code Comparator} to compare elements
      * @return the new {@code IntStream}
      */
-    public IntStream sorted(Comparator<Integer> comparator) {
+    @NotNull
+    public IntStream sorted(@Nullable Comparator<Integer> comparator) {
         return boxed().sorted(comparator).mapToInt(UNBOX_FUNCTION);
     }
 
@@ -625,6 +795,7 @@ public final class IntStream implements Closeable {
      * @throws IllegalArgumentException if {@code stepWidth} is zero or negative
      * @see Stream#sample(int)
      */
+    @NotNull
     public IntStream sample(final int stepWidth) {
         if (stepWidth <= 0) throw new IllegalArgumentException("stepWidth cannot be zero or negative");
         if (stepWidth == 1) return this;
@@ -641,7 +812,8 @@ public final class IntStream implements Closeable {
      * @param action the action to be performed on each element
      * @return the new stream
      */
-    public IntStream peek(final IntConsumer action) {
+    @NotNull
+    public IntStream peek(@NotNull final IntConsumer action) {
         return new IntStream(params, new IntPeek(iterator, action));
     }
 
@@ -665,7 +837,8 @@ public final class IntStream implements Closeable {
      * @throws NullPointerException if {@code accumulator} is null
      * @since 1.1.6
      */
-    public IntStream scan(final IntBinaryOperator accumulator) {
+    @NotNull
+    public IntStream scan(@NotNull final IntBinaryOperator accumulator) {
         Objects.requireNonNull(accumulator);
         return new IntStream(params, new IntScan(iterator, accumulator));
     }
@@ -692,7 +865,9 @@ public final class IntStream implements Closeable {
      * @throws NullPointerException if {@code accumulator} is null
      * @since 1.1.6
      */
-    public IntStream scan(final int identity, final IntBinaryOperator accumulator) {
+    @NotNull
+    public IntStream scan(final int identity,
+                          @NotNull final IntBinaryOperator accumulator) {
         Objects.requireNonNull(accumulator);
         return new IntStream(params, new IntScanIdentity(iterator, identity, accumulator));
     }
@@ -712,7 +887,8 @@ public final class IntStream implements Closeable {
      * @param predicate  the predicate used to take elements
      * @return the new {@code IntStream}
      */
-    public IntStream takeWhile(final IntPredicate predicate) {
+    @NotNull
+    public IntStream takeWhile(@NotNull final IntPredicate predicate) {
         return new IntStream(params, new IntTakeWhile(iterator, predicate));
     }
 
@@ -734,7 +910,8 @@ public final class IntStream implements Closeable {
      * @return the new {@code IntStream}
      * @since 1.1.6
      */
-    public IntStream takeUntil(final IntPredicate stopPredicate) {
+    @NotNull
+    public IntStream takeUntil(@NotNull final IntPredicate stopPredicate) {
         return new IntStream(params, new IntTakeUntil(iterator, stopPredicate));
     }
 
@@ -753,7 +930,8 @@ public final class IntStream implements Closeable {
      * @param predicate  the predicate used to drop elements
      * @return the new {@code IntStream}
      */
-    public IntStream dropWhile(final IntPredicate predicate) {
+    @NotNull
+    public IntStream dropWhile(@NotNull final IntPredicate predicate) {
         return new IntStream(params, new IntDropWhile(iterator, predicate));
     }
 
@@ -778,6 +956,7 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @throws IllegalArgumentException if {@code maxSize} is negative
      */
+    @NotNull
     public IntStream limit(final long maxSize) {
         if (maxSize < 0) {
             throw new IllegalArgumentException("maxSize cannot be negative");
@@ -811,6 +990,7 @@ public final class IntStream implements Closeable {
      * @return the new stream
      * @throws IllegalArgumentException if {@code n} is negative
      */
+    @NotNull
     public IntStream skip(final long n) {
         if (n < 0) {
             throw new IllegalArgumentException("n cannot be negative");
@@ -828,7 +1008,7 @@ public final class IntStream implements Closeable {
      *
      * @param action a non-interfering action to perform on the elements
      */
-    public void forEach(IntConsumer action) {
+    public void forEach(@NotNull IntConsumer action) {
         while(iterator.hasNext()) {
             action.accept(iterator.nextInt());
         }
@@ -842,7 +1022,7 @@ public final class IntStream implements Closeable {
      * @param action  the action to be performed on each element
      * @since 1.2.1
      */
-    public void forEachIndexed(IndexedIntConsumer action) {
+    public void forEachIndexed(@NotNull IndexedIntConsumer action) {
         forEachIndexed(0, 1, action);
     }
 
@@ -856,7 +1036,8 @@ public final class IntStream implements Closeable {
      * @param action  the action to be performed on each element
      * @since 1.2.1
      */
-    public void forEachIndexed(int from, int step, IndexedIntConsumer action) {
+    public void forEachIndexed(int from, int step,
+                               @NotNull IndexedIntConsumer action) {
         int index = from;
         while (iterator.hasNext()) {
             action.accept(index, iterator.nextInt());
@@ -892,7 +1073,7 @@ public final class IntStream implements Closeable {
      * @see #min()
      * @see #max()
      */
-    public int reduce(int identity, IntBinaryOperator op) {
+    public int reduce(int identity, @NotNull IntBinaryOperator op) {
         int result = identity;
         while(iterator.hasNext()) {
             int value = iterator.nextInt();
@@ -915,7 +1096,8 @@ public final class IntStream implements Closeable {
      * @return the result of the reduction
      * @see #reduce(int, IntBinaryOperator)
      */
-    public OptionalInt reduce(IntBinaryOperator op) {
+    @NotNull
+    public OptionalInt reduce(@NotNull IntBinaryOperator op) {
         boolean foundAny = false;
         int result = 0;
         while(iterator.hasNext()) {
@@ -938,6 +1120,7 @@ public final class IntStream implements Closeable {
      *
      * @return an array containing the elements of this stream
      */
+    @NotNull
     public int[] toArray() {
         return Operators.toIntArray(iterator);
     }
@@ -953,7 +1136,9 @@ public final class IntStream implements Closeable {
      * @return the result of collect elements
      * @see Stream#collect(com.annimon.stream.function.Supplier, com.annimon.stream.function.BiConsumer)
      */
-    public <R> R collect(Supplier<R> supplier, ObjIntConsumer<R> accumulator) {
+    @Nullable
+    public <R> R collect(@NotNull Supplier<R> supplier,
+                         @NotNull ObjIntConsumer<R> accumulator) {
         R result = supplier.get();
         while (iterator.hasNext()) {
             final int value = iterator.nextInt();
@@ -985,6 +1170,7 @@ public final class IntStream implements Closeable {
      * @return an {@code OptionalInt} containing the minimum element of this
      *         stream, or an empty {@code OptionalInt} if the stream is empty
      */
+    @NotNull
     public OptionalInt min() {
         return reduce(new IntBinaryOperator() {
             @Override
@@ -1003,6 +1189,7 @@ public final class IntStream implements Closeable {
      * @return an {@code OptionalInt} containing the maximum element of this
      *         stream, or an empty {@code OptionalInt} if the stream is empty
      */
+    @NotNull
     public OptionalInt max() {
         return reduce(new IntBinaryOperator() {
             @Override
@@ -1052,7 +1239,7 @@ public final class IntStream implements Closeable {
      * @return {@code true} if any elements of the stream match the provided
      *         predicate, otherwise {@code false}
      */
-    public boolean anyMatch(IntPredicate predicate) {
+    public boolean anyMatch(@NotNull IntPredicate predicate) {
         while(iterator.hasNext()) {
             if(predicate.test(iterator.nextInt()))
                 return true;
@@ -1085,7 +1272,7 @@ public final class IntStream implements Closeable {
      * @return {@code true} if either all elements of the stream match the
      *         provided predicate or the stream is empty, otherwise {@code false}
      */
-    public boolean allMatch(IntPredicate predicate) {
+    public boolean allMatch(@NotNull IntPredicate predicate) {
         while(iterator.hasNext()) {
             if(!predicate.test(iterator.nextInt()))
                 return false;
@@ -1118,7 +1305,7 @@ public final class IntStream implements Closeable {
      * @return {@code true} if either no elements of the stream match the
      *         provided predicate or the stream is empty, otherwise {@code false}
      */
-    public boolean noneMatch(IntPredicate predicate) {
+    public boolean noneMatch(@NotNull IntPredicate predicate) {
         while (iterator.hasNext()) {
             if (predicate.test(iterator.nextInt()))
                 return false;
@@ -1135,11 +1322,30 @@ public final class IntStream implements Closeable {
      * @return an {@code OptionalInt} describing the first element of this stream,
      *         or an empty {@code OptionalInt} if the stream is empty
      */
+    @NotNull
     public OptionalInt findFirst() {
         if (iterator.hasNext()) {
             return OptionalInt.of(iterator.nextInt());
         } else {
             return OptionalInt.empty();
+        }
+    }
+
+    /**
+     * Returns the first element if stream is not empty,
+     * otherwise returns {@code other}.
+     *
+     * <p>This is a short-circuiting terminal operation.
+     *
+     * @param other  the value to be returned if stream is empty
+     * @return first element or {@code other} if stream is empty
+     * @since 1.2.2
+     */
+    public int findFirstOrElse(int other) {
+        if (iterator.hasNext()) {
+            return iterator.nextInt();
+        } else {
+            return other;
         }
     }
 
@@ -1153,6 +1359,7 @@ public final class IntStream implements Closeable {
      *         or {@code OptionalInt.empty()} if the stream is empty
      * @since 1.1.8
      */
+    @NotNull
     public OptionalInt findLast() {
         return reduce(new IntBinaryOperator() {
             @Override
@@ -1222,6 +1429,7 @@ public final class IntStream implements Closeable {
      * @throws IllegalStateException if stream contains more than one element
      * @since 1.1.3
      */
+    @NotNull
     public OptionalInt findSingle() {
         if (iterator.hasNext()) {
             int singleCandidate = iterator.nextInt();
@@ -1244,17 +1452,10 @@ public final class IntStream implements Closeable {
      * @return the new stream with the close handler
      * @since 1.1.8
      */
-    public IntStream onClose(final Runnable closeHandler) {
+    @NotNull
+    public IntStream onClose(@NotNull final Runnable closeHandler) {
         Objects.requireNonNull(closeHandler);
-        final Params newParams;
-        if (params == null) {
-            newParams = new Params();
-            newParams.closeHandler = closeHandler;
-        } else {
-            newParams = params;
-            final Runnable firstHandler = newParams.closeHandler;
-            newParams.closeHandler = Compose.runnables(firstHandler, closeHandler);
-        }
+        final Params newParams = Params.wrapWithCloseHandler(params, closeHandler);
         return new IntStream(newParams, iterator);
     }
 

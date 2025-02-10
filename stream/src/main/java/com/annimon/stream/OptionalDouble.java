@@ -10,6 +10,8 @@ import com.annimon.stream.function.DoubleUnaryOperator;
 import com.annimon.stream.function.Function;
 import com.annimon.stream.function.Supplier;
 import java.util.NoSuchElementException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A container object which may or may not contain a {@code double} value.
@@ -17,7 +19,6 @@ import java.util.NoSuchElementException;
  * @since 1.1.4
  * @see Optional
  */
-@SuppressWarnings("WeakerAccess")
 public final class OptionalDouble {
 
     private static final OptionalDouble EMPTY = new OptionalDouble();
@@ -27,6 +28,7 @@ public final class OptionalDouble {
      *
      * @return an empty {@code OptionalDouble}
      */
+    @NotNull
     public static OptionalDouble empty() {
         return EMPTY;
     }
@@ -37,6 +39,7 @@ public final class OptionalDouble {
      * @param value  the value to be present
      * @return an {@code OptionalDouble} with the value present
      */
+    @NotNull
     public static OptionalDouble of(double value) {
         return new OptionalDouble(value);
     }
@@ -48,7 +51,8 @@ public final class OptionalDouble {
      * @return an {@code OptionalDouble}
      * @since 1.2.1
      */
-    public static OptionalDouble ofNullable(Double value) {
+    @NotNull
+    public static OptionalDouble ofNullable(@Nullable Double value) {
         return value == null ? EMPTY : new OptionalDouble(value);
     }
 
@@ -89,12 +93,22 @@ public final class OptionalDouble {
     }
 
     /**
+     * Checks the value is not present.
+     *
+     * @return {@code true} if a value is not present, {@code false} otherwise
+     * @since 1.2.1
+     */
+    public boolean isEmpty() {
+        return !isPresent;
+    }
+
+    /**
      * Invokes consumer function with value if present, otherwise does nothing.
      *
      * @param consumer  the consumer function to be executed if a value is present
      * @throws NullPointerException if value is present and {@code consumer} is null
      */
-    public void ifPresent(DoubleConsumer consumer) {
+    public void ifPresent(@NotNull DoubleConsumer consumer) {
         if (isPresent) {
             consumer.accept(value);
         }
@@ -109,7 +123,7 @@ public final class OptionalDouble {
      * @throws NullPointerException if a value is present and the given consumer function is null,
      *         or no value is present and the given empty-based action is null.
      */
-    public void ifPresentOrElse(DoubleConsumer consumer, Runnable emptyAction) {
+    public void ifPresentOrElse(@NotNull DoubleConsumer consumer, @NotNull Runnable emptyAction) {
         if (isPresent) {
             consumer.accept(value);
         } else {
@@ -125,7 +139,8 @@ public final class OptionalDouble {
      * @return this {@code OptionalDouble}
      * @see #ifPresent(com.annimon.stream.function.DoubleConsumer)
      */
-    public OptionalDouble executeIfPresent(DoubleConsumer consumer) {
+    @NotNull
+    public OptionalDouble executeIfPresent(@NotNull DoubleConsumer consumer) {
         ifPresent(consumer);
         return this;
     }
@@ -136,7 +151,8 @@ public final class OptionalDouble {
      * @param action  action that invokes if value absent
      * @return this {@code OptionalDouble}
      */
-    public OptionalDouble executeIfAbsent(Runnable action) {
+    @NotNull
+    public OptionalDouble executeIfAbsent(@NotNull Runnable action) {
         if (!isPresent()) {
             action.run();
         }
@@ -152,7 +168,8 @@ public final class OptionalDouble {
      * @throws NullPointerException if {@code function} is null
      * @since 1.1.9
      */
-    public <R> R custom(Function<OptionalDouble, R> function) {
+    @Nullable
+    public <R> R custom(@NotNull Function<OptionalDouble, R> function) {
         Objects.requireNonNull(function);
         return function.apply(this);
     }
@@ -164,7 +181,8 @@ public final class OptionalDouble {
      * @return this {@code OptionalDouble} if the value is present and matches predicate,
      *         otherwise an empty {@code OptionalDouble}
      */
-    public OptionalDouble filter(DoublePredicate predicate) {
+    @NotNull
+    public OptionalDouble filter(@NotNull DoublePredicate predicate) {
         if (!isPresent()) return this;
         return predicate.test(value) ? this : OptionalDouble.empty();
     }
@@ -177,7 +195,8 @@ public final class OptionalDouble {
      *              otherwise an empty {@code OptionalDouble}
      * @since 1.1.9
      */
-    public OptionalDouble filterNot(DoublePredicate predicate) {
+    @NotNull
+    public OptionalDouble filterNot(@NotNull DoublePredicate predicate) {
         return filter(DoublePredicate.Util.negate(predicate));
     }
 
@@ -190,7 +209,8 @@ public final class OptionalDouble {
      * @throws NullPointerException if value is present and
      *         {@code mapper} is {@code null}
      */
-    public OptionalDouble map(DoubleUnaryOperator mapper) {
+    @NotNull
+    public OptionalDouble map(@NotNull DoubleUnaryOperator mapper) {
         if (!isPresent()) {
             return empty();
         }
@@ -208,7 +228,8 @@ public final class OptionalDouble {
      * @throws NullPointerException if value is present and
      *         {@code mapper} is {@code null}
      */
-    public <U> Optional<U> mapToObj(DoubleFunction<U> mapper) {
+    @NotNull
+    public <U> Optional<U> mapToObj(@NotNull DoubleFunction<U> mapper) {
         if (!isPresent()) {
             return Optional.empty();
         }
@@ -225,7 +246,8 @@ public final class OptionalDouble {
      * @throws NullPointerException if value is present and
      *         {@code mapper} is {@code null}
      */
-    public OptionalInt mapToInt(DoubleToIntFunction mapper) {
+    @NotNull
+    public OptionalInt mapToInt(@NotNull DoubleToIntFunction mapper) {
         if (!isPresent()) {
             return OptionalInt.empty();
         }
@@ -242,7 +264,8 @@ public final class OptionalDouble {
      * @throws NullPointerException if value is present and
      *         {@code mapper} is {@code null}
      */
-    public OptionalLong mapToLong(DoubleToLongFunction mapper) {
+    @NotNull
+    public OptionalLong mapToLong(@NotNull DoubleToLongFunction mapper) {
         if (!isPresent()) {
             return OptionalLong.empty();
         }
@@ -256,6 +279,7 @@ public final class OptionalDouble {
      *
      * @return the optional value as an {@code DoubleStream}
      */
+    @NotNull
     public DoubleStream stream() {
         if (!isPresent()) {
             return DoubleStream.empty();
@@ -273,7 +297,8 @@ public final class OptionalDouble {
      * @throws NullPointerException if value is not present and
      *         {@code supplier} or value produced by it is {@code null}
      */
-    public OptionalDouble or(Supplier<OptionalDouble> supplier) {
+    @NotNull
+    public OptionalDouble or(@NotNull Supplier<OptionalDouble> supplier) {
         if (isPresent()) return this;
         Objects.requireNonNull(supplier);
         return Objects.requireNonNull(supplier.get());
@@ -296,7 +321,7 @@ public final class OptionalDouble {
      * @return the value if present otherwise the result of {@code other.getAsDouble()}
      * @throws NullPointerException if value is not present and {@code other} is null
      */
-    public double orElseGet(DoubleSupplier other) {
+    public double orElseGet(@NotNull DoubleSupplier other) {
         return isPresent ? value : other.getAsDouble();
     }
 
@@ -322,7 +347,7 @@ public final class OptionalDouble {
      * @return inner value if present
      * @throws X if inner value is not present
      */
-    public <X extends Throwable> double orElseThrow(Supplier<X> exceptionSupplier) throws X {
+    public <X extends Throwable> double orElseThrow(@NotNull Supplier<X> exceptionSupplier) throws X {
         if (isPresent) {
             return value;
         } else {
@@ -348,6 +373,7 @@ public final class OptionalDouble {
         return isPresent ? Objects.hashCode(value) : 0;
     }
 
+    @NotNull
     @Override
     public String toString() {
         return isPresent

@@ -4,6 +4,7 @@ import com.annimon.stream.function.*;
 import com.annimon.stream.internal.Compose;
 import com.annimon.stream.internal.Operators;
 import com.annimon.stream.internal.Params;
+import com.annimon.stream.internal.SpinedBuffer;
 import com.annimon.stream.iterator.IndexedIterator;
 import com.annimon.stream.iterator.LazyIterator;
 import com.annimon.stream.operator.*;
@@ -15,12 +16,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A sequence of elements supporting aggregate operations.
  *
  * @param <T> the type of the stream elements
  */
+@SuppressWarnings("RedundantTypeArguments")
 public class Stream<T> implements Closeable {
 
     /**
@@ -29,6 +33,7 @@ public class Stream<T> implements Closeable {
      * @param <T> the type of the stream elements
      * @return the new empty stream
      */
+    @NotNull
     public static <T> Stream<T> empty() {
         return of(Collections.<T>emptyList());
     }
@@ -42,7 +47,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code map} is null
      */
-    public static <K, V> Stream<Map.Entry<K, V>> of(Map<K, V> map) {
+    @NotNull
+    public static <K, V> Stream<Map.Entry<K, V>> of(@NotNull Map<K, V> map) {
         Objects.requireNonNull(map);
         return new Stream<Map.Entry<K, V>>(map.entrySet());
     }
@@ -55,7 +61,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code iterator} is null
      */
-    public static <T> Stream<T> of(Iterator<? extends T> iterator) {
+    @NotNull
+    public static <T> Stream<T> of(@NotNull Iterator<? extends T> iterator) {
         Objects.requireNonNull(iterator);
         return new Stream<T>(iterator);
     }
@@ -68,7 +75,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code iterable} is null
      */
-    public static <T> Stream<T> of(Iterable<? extends T> iterable) {
+    @NotNull
+    public static <T> Stream<T> of(@NotNull Iterable<? extends T> iterable) {
         Objects.requireNonNull(iterable);
         return new Stream<T>(iterable);
     }
@@ -81,7 +89,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code elements} is null
      */
-    public static <T> Stream<T> of(final T... elements) {
+    @NotNull
+    public static <T> Stream<T> of(@NotNull final T... elements) {
         Objects.requireNonNull(elements);
         if (elements.length == 0) {
             return Stream.<T>empty();
@@ -98,8 +107,9 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.5
      */
+    @NotNull
     @SuppressWarnings("unchecked")
-    public static <T> Stream<T> ofNullable(T element) {
+    public static <T> Stream<T> ofNullable(@Nullable T element) {
         return (element == null) ? Stream.<T>empty() : Stream.of(element);
     }
 
@@ -112,7 +122,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.9
      */
-    public static <T> Stream<T> ofNullable(final T[] array) {
+    @NotNull
+    public static <T> Stream<T> ofNullable(@Nullable final T[] array) {
         return (array == null) ? Stream.<T>empty() : Stream.of(array);
     }
 
@@ -126,7 +137,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.9
      */
-    public static <K, V> Stream<Map.Entry<K, V>> ofNullable(Map<K, V> map) {
+    @NotNull
+    public static <K, V> Stream<Map.Entry<K, V>> ofNullable(@Nullable Map<K, V> map) {
         return (map == null) ? Stream.<Map.Entry<K, V>>empty() : Stream.of(map);
     }
 
@@ -139,7 +151,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.9
      */
-    public static <T> Stream<T> ofNullable(Iterator<? extends T> iterator) {
+    @NotNull
+    public static <T> Stream<T> ofNullable(@Nullable Iterator<? extends T> iterator) {
         return (iterator == null) ? Stream.<T>empty() : Stream.of(iterator);
     }
 
@@ -152,7 +165,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.5
      */
-    public static <T> Stream<T> ofNullable(Iterable<? extends T> iterable) {
+    @NotNull
+    public static <T> Stream<T> ofNullable(@Nullable Iterable<? extends T> iterable) {
         return (iterable == null) ? Stream.<T>empty() : Stream.of(iterable);
     }
 
@@ -165,6 +179,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @see IntStream#range(int, int)
      */
+    @NotNull
     public static Stream<Integer> range(final int from, final int to) {
         return IntStream.range(from, to).boxed();
     }
@@ -177,6 +192,7 @@ public class Stream<T> implements Closeable {
      * @param to  the upper bound (exclusive)
      * @return the new stream
      */
+    @NotNull
     public static Stream<Long> range(final long from, final long to) {
         return LongStream.range(from, to).boxed();
     }
@@ -190,6 +206,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @see IntStream#rangeClosed(int, int)
      */
+    @NotNull
     public static Stream<Integer> rangeClosed(final int from, final int to) {
         return IntStream.rangeClosed(from, to).boxed();
     }
@@ -202,6 +219,7 @@ public class Stream<T> implements Closeable {
      * @param to  the upper bound (inclusive)
      * @return the new stream
      */
+    @NotNull
     public static Stream<Long> rangeClosed(final long from, final long to) {
         return LongStream.rangeClosed(from, to).boxed();
     }
@@ -214,7 +232,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code supplier} is null
      */
-    public static <T> Stream<T> generate(final Supplier<T> supplier) {
+    @NotNull
+    public static <T> Stream<T> generate(@NotNull final Supplier<T> supplier) {
         Objects.requireNonNull(supplier);
         return new Stream<T>(new ObjGenerate<T>(supplier));
     }
@@ -237,7 +256,10 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code op} is null
      */
-    public static <T> Stream<T> iterate(final T seed, final UnaryOperator<T> op) {
+    @NotNull
+    public static <T> Stream<T> iterate(
+            @Nullable final T seed,
+            @NotNull final UnaryOperator<T> op) {
         Objects.requireNonNull(op);
         return new Stream<T>(new ObjIterate<T>(seed, op));
     }
@@ -262,14 +284,17 @@ public class Stream<T> implements Closeable {
      * @throws NullPointerException if {@code op} is null
      * @since 1.1.5
      */
-    public static <T> Stream<T> iterate(final T seed,
-            final Predicate<? super T> predicate, final UnaryOperator<T> op) {
+    @NotNull
+    public static <T> Stream<T> iterate(
+            @Nullable final T seed,
+            @NotNull final Predicate<? super T> predicate,
+            @NotNull final UnaryOperator<T> op) {
         Objects.requireNonNull(predicate);
         return iterate(seed, op).takeWhile(predicate);
     }
 
     /**
-     * Concatenates two streams.
+     * Lazily concatenates two streams.
      *
      * <p>Example:
      * <pre>
@@ -284,11 +309,51 @@ public class Stream<T> implements Closeable {
      * @return the new concatenated stream
      * @throws NullPointerException if {@code stream1} or {@code stream2} is null
      */
-    public static <T> Stream<T> concat(Stream<? extends T> stream1, Stream<? extends T> stream2) {
+    @NotNull
+    public static <T> Stream<T> concat(
+            @NotNull Stream<? extends T> stream1,
+            @NotNull Stream<? extends T> stream2) {
         Objects.requireNonNull(stream1);
         Objects.requireNonNull(stream2);
         Stream<T> result = new Stream<T>(new ObjConcat<T>(stream1.iterator, stream2.iterator));
         return result.onClose(Compose.closeables(stream1, stream2));
+    }
+
+    /**
+     * Lazily concatenates a {@code List} of streams.
+     *
+     * <p>Example:
+     * <pre>
+     * stream 1: [1, 2, 3, 4]
+     * stream 2: [5, 6]
+     * stream 3: [7]
+     * stream 4: [8, 9, 10]
+     * result:   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+     * </pre>
+     *
+     * @param <T> The type of stream elements
+     * @param streams  the list of streams
+     * @return the new concatenated stream
+     * @throws NullPointerException if {@code streams} is null
+     * @since 1.2.2
+     */
+    @NotNull
+    public static <T> Stream<T> concat(
+            @NotNull List<? extends Stream<? extends T>> streams) {
+        Objects.requireNonNull(streams);
+
+        final int size = streams.size();
+        final List<Iterator<? extends T>> iterators =
+                new ArrayList<Iterator<? extends T>>(size);
+        final List<Closeable> closeables =
+                new ArrayList<Closeable>(size);
+        for (final Stream<? extends T> stream : streams) {
+            iterators.add(stream.iterator);
+            closeables.add(stream);
+        }
+
+        Stream<T> result = new Stream<T>(new ObjConcat<T>(iterators));
+        return result.onClose(Compose.closeables(closeables));
     }
 
     /**
@@ -308,10 +373,52 @@ public class Stream<T> implements Closeable {
      * @throws NullPointerException if {@code iterator1} or {@code iterator2} is null
      * @since 1.1.9
      */
-    public static <T> Stream<T> concat(Iterator<? extends T> iterator1, Iterator<? extends T> iterator2) {
+    @NotNull
+    public static <T> Stream<T> concat(
+            @NotNull Iterator<? extends T> iterator1,
+            @NotNull Iterator<? extends T> iterator2) {
         Objects.requireNonNull(iterator1);
         Objects.requireNonNull(iterator2);
         return new Stream<T>(new ObjConcat<T>(iterator1, iterator2));
+    }
+
+    /**
+     * Concatenates three or more iterators to a stream.
+     *
+     * <p>Example:
+     * <pre>
+     * iterator 1: [1, 2, 3, 4]
+     * iterator 2: [5, 6]
+     * iterator 3: [7]
+     * iterator 4: [8, 9, 10]
+     * result:     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+     * </pre>
+     *
+     * @param <T> The type of iterator elements
+     * @param iterator1  the first iterator
+     * @param iterator2  the second iterator
+     * @param rest  the rest iterators
+     * @return the new concatenated stream
+     * @throws NullPointerException if {@code iterator1} or {@code iterator2}
+     *         or {@code rest} is null
+     * @since 1.2.2
+     */
+    @NotNull
+    @SuppressWarnings("unchecked")
+    public static <T> Stream<T> concat(
+            @NotNull Iterator<? extends T> iterator1,
+            @NotNull Iterator<? extends T> iterator2,
+            @NotNull Iterator<? extends T>... rest) {
+        Objects.requireNonNull(iterator1);
+        Objects.requireNonNull(iterator2);
+        Objects.requireNonNull(rest);
+
+        final List<Iterator<? extends T>> iterators =
+                new ArrayList<Iterator<? extends T>>(rest.length + 2);
+        Collections.addAll(iterators, iterator1, iterator2);
+        Collections.addAll(iterators, rest);
+
+        return new Stream<T>(new ObjConcat<T>(iterators));
     }
 
     /**
@@ -334,8 +441,11 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws NullPointerException if {@code stream1} or {@code stream2} is null
      */
-    public static <F, S, R> Stream<R> zip(Stream<? extends F> stream1, Stream<? extends S> stream2,
-            final BiFunction<? super F, ? super S, ? extends R> combiner) {
+    @NotNull
+    public static <F, S, R> Stream<R> zip(
+            @NotNull Stream<? extends F> stream1,
+            @NotNull Stream<? extends S> stream2,
+            @NotNull final BiFunction<? super F, ? super S, ? extends R> combiner) {
         Objects.requireNonNull(stream1);
         Objects.requireNonNull(stream2);
         return Stream.<F, S, R>zip(stream1.iterator, stream2.iterator, combiner);
@@ -362,9 +472,11 @@ public class Stream<T> implements Closeable {
      * @throws NullPointerException if {@code iterator1} or {@code iterator2} is null
      * @since 1.1.2
      */
-    public static <F, S, R> Stream<R> zip(final Iterator<? extends F> iterator1,
-            final Iterator<? extends S> iterator2,
-            final BiFunction<? super F, ? super S, ? extends R> combiner) {
+    @NotNull
+    public static <F, S, R> Stream<R> zip(
+            @NotNull final Iterator<? extends F> iterator1,
+            @NotNull final Iterator<? extends S> iterator2,
+            @NotNull final BiFunction<? super F, ? super S, ? extends R> combiner) {
         Objects.requireNonNull(iterator1);
         Objects.requireNonNull(iterator2);
         return new Stream<R>(new ObjZip<F, S, R>(iterator1, iterator2, combiner));
@@ -397,9 +509,11 @@ public class Stream<T> implements Closeable {
      * @throws NullPointerException if {@code stream1} or {@code stream2} is null
      * @since 1.1.9
      */
+    @NotNull
     public static <T> Stream<T> merge(
-            Stream<? extends T> stream1, Stream<? extends T> stream2,
-            BiFunction<? super T, ? super T, ObjMerge.MergeResult> selector) {
+            @NotNull Stream<? extends T> stream1,
+            @NotNull Stream<? extends T> stream2,
+            @NotNull BiFunction<? super T, ? super T, ObjMerge.MergeResult> selector) {
         Objects.requireNonNull(stream1);
         Objects.requireNonNull(stream2);
         return Stream.<T>merge(stream1.iterator, stream2.iterator, selector);
@@ -433,8 +547,9 @@ public class Stream<T> implements Closeable {
      * @since 1.1.9
      */
     public static <T> Stream<T> merge(
-            Iterator<? extends T> iterator1, Iterator<? extends T> iterator2,
-            BiFunction<? super T, ? super T, ObjMerge.MergeResult> selector) {
+            @NotNull Iterator<? extends T> iterator1,
+            @NotNull Iterator<? extends T> iterator2,
+            @NotNull BiFunction<? super T, ? super T, ObjMerge.MergeResult> selector) {
         Objects.requireNonNull(iterator1);
         Objects.requireNonNull(iterator2);
         return new Stream<T>(new ObjMerge<T>(iterator1, iterator2, selector));
@@ -527,9 +642,54 @@ public class Stream<T> implements Closeable {
      * @return a result of the transforming function
      * @throws NullPointerException if {@code function} is null
      */
-    public <R> R custom(Function<Stream<T>, R> function) {
+    @Nullable
+    public <R> R custom(@NotNull Function<Stream<T>, R> function) {
         Objects.requireNonNull(function);
         return function.apply(this);
+    }
+
+    /**
+     * Prepends given {@code Stream} to current and returns a new stream.
+     *
+     * This is similar to {@code Stream.concat(stream, this)}
+     *
+     * <p>Example:
+     * <pre>
+     * current: [1, 2, 3]
+     * stream:  [4, 5, 6]
+     * result:  [4, 5, 6, 1, 2, 3]
+     * </pre>
+     *
+     * @param stream  the stream to prepend
+     * @return the new stream
+     * @since 1.2.2
+     * @see #concat(Stream, Stream)
+     */
+    @NotNull
+    public Stream<T> prepend(@NotNull Stream<? extends T> stream) {
+        return Stream.concat(stream, this);
+    }
+
+    /**
+     * Appends given {@code Stream} to current and returns a new stream.
+     *
+     * This is similar to {@code Stream.concat(this, stream)}
+     *
+     * <p>Example:
+     * <pre>
+     * current: [1, 2, 3]
+     * stream:  [4, 5, 6]
+     * result:  [1, 2, 3, 4, 5, 6]
+     * </pre>
+     *
+     * @param stream  the stream to append
+     * @return the new stream
+     * @since 1.2.2
+     * @see #concat(Stream, Stream)
+     */
+    @NotNull
+    public Stream<T> append(@NotNull Stream<? extends T> stream) {
+        return Stream.concat(this, stream);
     }
 
     /**
@@ -547,7 +707,8 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to filter elements
      * @return the new stream
      */
-    public Stream<T> filter(final Predicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> filter(@NotNull final Predicate<? super T> predicate) {
         return new Stream<T>(params, new ObjFilter<T>(iterator, predicate));
     }
 
@@ -570,7 +731,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> filterIndexed(IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> filterIndexed(@NotNull IndexedPredicate<? super T> predicate) {
         return filterIndexed(0, 1, predicate);
     }
 
@@ -597,7 +759,9 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> filterIndexed(int from, int step, IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> filterIndexed(int from, int step,
+                                   @NotNull IndexedPredicate<? super T> predicate) {
         return new Stream<T>(params, new ObjFilterIndexed<T>(
                 new IndexedIterator<T>(from, step, iterator),
                 predicate));
@@ -611,7 +775,8 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to filter elements
      * @return the new stream
      */
-    public Stream<T> filterNot(final Predicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> filterNot(@NotNull final Predicate<? super T> predicate) {
         return filter(Predicate.Util.negate(predicate));
     }
 
@@ -625,8 +790,9 @@ public class Stream<T> implements Closeable {
      * @param clazz a class which instances should be selected
      * @return the new stream of type passed as parameter
      */
+    @NotNull
     @SuppressWarnings("unchecked")
-    public <TT> Stream<TT> select(final Class<TT> clazz) {
+    public <TT> Stream<TT> select(@NotNull final Class<TT> clazz) {
         return (Stream<TT>) filter(new Predicate<T>() {
             @Override
             public boolean test(T value) {
@@ -643,6 +809,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
+    @NotNull
     public Stream<T> withoutNulls() {
         return filter(Predicate.Util.<T>notNull());
     }
@@ -655,6 +822,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
+    @NotNull
     public Stream<T> nullsOnly() {
         return filterNot(Predicate.Util.<T>notNull());
     }
@@ -668,7 +836,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.2.0
      */
-    public Stream<T> equalsOnly(final T object) {
+    @NotNull
+    public Stream<T> equalsOnly(@Nullable final T object) {
         return filter(new Predicate<T>() {
             @Override
             public boolean test(T value) {
@@ -693,7 +862,8 @@ public class Stream<T> implements Closeable {
      * @param mapper  the mapper function used to apply to each element
      * @return the new stream
      */
-    public <R> Stream<R> map(final Function<? super T, ? extends R> mapper) {
+    @NotNull
+    public <R> Stream<R> map(@NotNull final Function<? super T, ? extends R> mapper) {
         return new Stream<R>(params, new ObjMap<T, R>(iterator, mapper));
     }
 
@@ -715,7 +885,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public <R> Stream<R> mapIndexed(IndexedFunction<? super T, ? extends R> mapper) {
+    @NotNull
+    public <R> Stream<R> mapIndexed(@NotNull IndexedFunction<? super T, ? extends R> mapper) {
         return this.<R>mapIndexed(0, 1, mapper);
     }
 
@@ -741,7 +912,9 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public <R> Stream<R> mapIndexed(int from, int step, IndexedFunction<? super T, ? extends R> mapper) {
+    @NotNull
+    public <R> Stream<R> mapIndexed(int from, int step,
+                                    @NotNull IndexedFunction<? super T, ? extends R> mapper) {
         return new Stream<R>(params, new ObjMapIndexed<T, R>(
                 new IndexedIterator<T>(from, step, iterator),
                 mapper));
@@ -756,7 +929,8 @@ public class Stream<T> implements Closeable {
      * @return the new {@code IntStream}
      * @see #map(com.annimon.stream.function.Function)
      */
-    public IntStream mapToInt(final ToIntFunction<? super T> mapper) {
+    @NotNull
+    public IntStream mapToInt(@NotNull final ToIntFunction<? super T> mapper) {
         return new IntStream(params, new ObjMapToInt<T>(iterator, mapper));
     }
 
@@ -770,7 +944,8 @@ public class Stream<T> implements Closeable {
      * @since 1.1.4
      * @see #map(com.annimon.stream.function.Function)
      */
-    public LongStream mapToLong(final ToLongFunction<? super T> mapper) {
+    @NotNull
+    public LongStream mapToLong(@NotNull final ToLongFunction<? super T> mapper) {
         return new LongStream(params, new ObjMapToLong<T>(iterator, mapper));
     }
 
@@ -784,7 +959,8 @@ public class Stream<T> implements Closeable {
      * @since 1.1.4
      * @see #map(com.annimon.stream.function.Function)
      */
-    public DoubleStream mapToDouble(final ToDoubleFunction<? super T> mapper) {
+    @NotNull
+    public DoubleStream mapToDouble(@NotNull final ToDoubleFunction<? super T> mapper) {
         return new DoubleStream(params, new ObjMapToDouble<T>(iterator, mapper));
     }
 
@@ -806,7 +982,8 @@ public class Stream<T> implements Closeable {
      * @param mapper  the mapper function used to apply to each element
      * @return the new stream
      */
-    public <R> Stream<R> flatMap(final Function<? super T, ? extends Stream<? extends R>> mapper) {
+    @NotNull
+    public <R> Stream<R> flatMap(@NotNull final Function<? super T, ? extends Stream<? extends R>> mapper) {
         return new Stream<R>(params, new ObjFlatMap<T, R>(iterator, mapper));
     }
 
@@ -821,7 +998,8 @@ public class Stream<T> implements Closeable {
      * @return the new {@code IntStream}
      * @see #flatMap(com.annimon.stream.function.Function)
      */
-    public IntStream flatMapToInt(final Function<? super T, ? extends IntStream> mapper) {
+    @NotNull
+    public IntStream flatMapToInt(@NotNull final Function<? super T, ? extends IntStream> mapper) {
         return new IntStream(params, new ObjFlatMapToInt<T>(iterator, mapper));
     }
 
@@ -836,7 +1014,8 @@ public class Stream<T> implements Closeable {
      * @return the new {@code LongStream}
      * @see #flatMap(com.annimon.stream.function.Function)
      */
-    public LongStream flatMapToLong(final Function<? super T, ? extends LongStream> mapper) {
+    @NotNull
+    public LongStream flatMapToLong(@NotNull final Function<? super T, ? extends LongStream> mapper) {
         return new LongStream(params, new ObjFlatMapToLong<T>(iterator, mapper));
     }
 
@@ -851,8 +1030,126 @@ public class Stream<T> implements Closeable {
      * @return the new {@code DoubleStream}
      * @see #flatMap(com.annimon.stream.function.Function)
      */
-    public DoubleStream flatMapToDouble(final Function<? super T, ? extends DoubleStream> mapper) {
+    @NotNull
+    public DoubleStream flatMapToDouble(@NotNull final Function<? super T, ? extends DoubleStream> mapper) {
         return new DoubleStream(params, new ObjFlatMapToDouble<T>(iterator, mapper));
+    }
+
+    /**
+     * Returns a stream consisting of the results of replacing each element of
+     * this stream with zero or more elements,
+     * that passed to the provided consumer function.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * <p>Example:
+     * <pre>
+     * stream: [1, 2, 3, 4]
+     * mapper: (a, consumer) -&gt; {
+     *   consumer.accept(a);
+     *   consumer.accept(-a);
+     * }
+     * result: [1, -1, 2, -2, 3, -3, 4, -4]
+     *
+     * stream: [1, 2, 3, 4]
+     * mapper: (a, consumer) -&gt; {
+     *   if (a % 2 == 0)
+     *     consumer.accept(a * 2);
+     * }
+     * result: [4, 8]
+     * </pre>
+     *
+     * @param <R> the type of elements in resulting stream
+     * @param mapper  the mapper function used to apply to each element for producing replacing elements
+     * @return the new stream
+     * @since 1.2.2
+     * @see #flatMap(com.annimon.stream.function.Function)
+     */
+    @NotNull
+    public <R> Stream<R> mapMulti(@NotNull final BiConsumer<? super T, ? super Consumer<R>> mapper) {
+        return flatMap(new Function<T, Stream<? extends R>>() {
+            @Override
+            public Stream<? extends R> apply(T t) {
+                SpinedBuffer.Of<R> buffer = new SpinedBuffer.Of<R>();
+                mapper.accept(t, buffer);
+                return of(buffer.iterator());
+            }
+        });
+    }
+
+    /**
+     * Returns a stream consisting of the results of replacing each element of
+     * this stream with zero or more elements,
+     * that passed to the provided consumer function.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param mapper  the mapper function used to apply to each element for producing replacing elements
+     * @return the new stream
+     * @since 1.2.2
+     * @see #mapMulti(com.annimon.stream.function.BiConsumer)
+     * @see #flatMapToInt(com.annimon.stream.function.Function)
+     */
+    @NotNull
+    public IntStream mapMultiToInt(@NotNull final BiConsumer<? super T, ? super IntConsumer> mapper) {
+        return flatMapToInt(new Function<T, IntStream>() {
+            @Override
+            public IntStream apply(T t) {
+                SpinedBuffer.OfInt buffer = new SpinedBuffer.OfInt();
+                mapper.accept(t, buffer);
+                return IntStream.of(buffer.iterator());
+            }
+        });
+    }
+
+    /**
+     * Returns a stream consisting of the results of replacing each element of
+     * this stream with zero or more elements,
+     * that passed to the provided consumer function.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param mapper  the mapper function used to apply to each element for producing replacing elements
+     * @return the new stream
+     * @since 1.2.2
+     * @see #mapMulti(com.annimon.stream.function.BiConsumer)
+     * @see #flatMapToLong(com.annimon.stream.function.Function)
+     */
+    @NotNull
+    public LongStream mapMultiToLong(@NotNull final BiConsumer<? super T, ? super LongConsumer> mapper) {
+        return flatMapToLong(new Function<T, LongStream>() {
+            @Override
+            public LongStream apply(T t) {
+                SpinedBuffer.OfLong buffer = new SpinedBuffer.OfLong();
+                mapper.accept(t, buffer);
+                return LongStream.of(buffer.iterator());
+            }
+        });
+    }
+
+    /**
+     * Returns a stream consisting of the results of replacing each element of
+     * this stream with zero or more elements,
+     * that passed to the provided consumer function.
+     *
+     * <p>This is an intermediate operation.
+     *
+     * @param mapper  the mapper function used to apply to each element for producing replacing elements
+     * @return the new stream
+     * @since 1.2.2
+     * @see #mapMulti(com.annimon.stream.function.BiConsumer)
+     * @see #flatMapToDouble(com.annimon.stream.function.Function)
+     */
+    @NotNull
+    public DoubleStream mapMultiToDouble(@NotNull final BiConsumer<? super T, ? super DoubleConsumer> mapper) {
+        return flatMapToDouble(new Function<T, DoubleStream>() {
+            @Override
+            public DoubleStream apply(T t) {
+                SpinedBuffer.OfDouble buffer = new SpinedBuffer.OfDouble();
+                mapper.accept(t, buffer);
+                return DoubleStream.of(buffer.iterator());
+            }
+        });
     }
 
     /**
@@ -870,6 +1167,7 @@ public class Stream<T> implements Closeable {
      * @return the new {@code IntPair} stream
      * @since 1.1.2
      */
+    @NotNull
     public Stream<IntPair<T>> indexed() {
         return indexed(0, 1);
     }
@@ -891,9 +1189,11 @@ public class Stream<T> implements Closeable {
      * @return the new {@code IntPair} stream
      * @since 1.1.2
      */
+    @NotNull
     public Stream<IntPair<T>> indexed(final int from, final int step) {
         return mapIndexed(from, step, new IndexedFunction<T, IntPair<T>>() {
 
+            @NotNull
             @Override
             public IntPair<T> apply(int index, T t) {
                 return new IntPair<T>(index, t);
@@ -914,6 +1214,7 @@ public class Stream<T> implements Closeable {
      *
      * @return the new stream
      */
+    @NotNull
     public Stream<T> distinct() {
         return new Stream<T>(params, new ObjDistinct<T>(iterator));
     }
@@ -936,7 +1237,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.8
      */
-    public <K> Stream<T> distinctBy(Function<? super T, ? extends K> classifier) {
+    @NotNull
+    public <K> Stream<T> distinctBy(@NotNull Function<? super T, ? extends K> classifier) {
         return new Stream<T>(params, new ObjDistinctBy<T, K>(iterator, classifier));
     }
 
@@ -955,6 +1257,7 @@ public class Stream<T> implements Closeable {
      *
      * @return the new stream
      */
+    @NotNull
     public Stream<T> sorted() {
         return sorted(new Comparator<T>() {
 
@@ -983,7 +1286,8 @@ public class Stream<T> implements Closeable {
      * @param comparator  the {@code Comparator} to compare elements
      * @return the new stream
      */
-    public Stream<T> sorted(final Comparator<? super T> comparator) {
+    @NotNull
+    public Stream<T> sorted(@Nullable final Comparator<? super T> comparator) {
         return new Stream<T>(params, new ObjSorted<T>(iterator, comparator));
     }
 
@@ -1004,7 +1308,9 @@ public class Stream<T> implements Closeable {
      * @param f  the transformation function
      * @return the new stream
      */
-    public <R extends Comparable<? super R>> Stream<T> sortBy(final Function<? super T, ? extends R> f) {
+    @NotNull
+    public <R extends Comparable<? super R>> Stream<T> sortBy(
+            @NotNull final Function<? super T, ? extends R> f) {
         return sorted(ComparatorCompat.comparing(f));
     }
 
@@ -1024,7 +1330,9 @@ public class Stream<T> implements Closeable {
      * @param classifier  the classifier function
      * @return the new stream
      */
-    public <K> Stream<Map.Entry<K, List<T>>> groupBy(final Function<? super T, ? extends K> classifier) {
+    @NotNull
+    public <K> Stream<Map.Entry<K, List<T>>> groupBy(
+            @NotNull final Function<? super T, ? extends K> classifier) {
         Map<K, List<T>> map = collect(Collectors.<T, K>groupingBy(classifier));
         return new Stream<Map.Entry<K, List<T>>>(params, map.entrySet());
     }
@@ -1049,7 +1357,8 @@ public class Stream<T> implements Closeable {
      * @param classifier  the classifier function
      * @return the new stream
      */
-    public <K> Stream<List<T>> chunkBy(final Function<? super T, ? extends K> classifier) {
+    @NotNull
+    public <K> Stream<List<T>> chunkBy(@NotNull final Function<? super T, ? extends K> classifier) {
         return new Stream<List<T>>(params, new ObjChunkBy<T, K>(iterator, classifier));
     }
 
@@ -1069,12 +1378,13 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws IllegalArgumentException if {@code stepWidth} is zero or negative
      */
+    @NotNull
     public Stream<T> sample(final int stepWidth) {
         if (stepWidth <= 0) throw new IllegalArgumentException("stepWidth cannot be zero or negative");
         if (stepWidth == 1) return this;
         return slidingWindow(1, stepWidth).map(new Function<List<T>, T>() {
             @Override
-            public T apply(List<T> list) {
+            public T apply(@NotNull List<T> list) {
                 return list.get(0);
             }
         });
@@ -1098,6 +1408,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @see #slidingWindow(int, int)
      */
+    @NotNull
     public Stream<List<T>> slidingWindow(final int windowSize) {
         return slidingWindow(windowSize, 1);
     }
@@ -1132,6 +1443,7 @@ public class Stream<T> implements Closeable {
      * @throws IllegalArgumentException if {@code windowSize} is zero or negative
      * @throws IllegalArgumentException if {@code stepWidth} is zero or negative
      */
+    @NotNull
     public Stream<List<T>> slidingWindow(final int windowSize, final int stepWidth) {
         if (windowSize <= 0) throw new IllegalArgumentException("windowSize cannot be zero or negative");
         if (stepWidth <= 0) throw new IllegalArgumentException("stepWidth cannot be zero or negative");
@@ -1146,7 +1458,8 @@ public class Stream<T> implements Closeable {
      * @param action  the action to be performed on each element
      * @return the new stream
      */
-    public Stream<T> peek(final Consumer<? super T> action) {
+    @NotNull
+    public Stream<T> peek(@NotNull final Consumer<? super T> action) {
         return new Stream<T>(params, new ObjPeek<T>(iterator, action));
     }
 
@@ -1170,7 +1483,8 @@ public class Stream<T> implements Closeable {
      * @throws NullPointerException if {@code accumulator} is null
      * @since 1.1.6
      */
-    public Stream<T> scan(final BiFunction<T, T, T> accumulator) {
+    @NotNull
+    public Stream<T> scan(@NotNull final BiFunction<T, T, T> accumulator) {
         Objects.requireNonNull(accumulator);
         return new Stream<T>(params, new ObjScan<T>(iterator, accumulator));
     }
@@ -1198,7 +1512,10 @@ public class Stream<T> implements Closeable {
      * @throws NullPointerException if {@code accumulator} is null
      * @since 1.1.6
      */
-    public <R> Stream<R> scan(final R identity, final BiFunction<? super R, ? super T, ? extends R> accumulator) {
+    @NotNull
+    public <R> Stream<R> scan(
+            @Nullable final R identity,
+            @NotNull final BiFunction<? super R, ? super T, ? extends R> accumulator) {
         Objects.requireNonNull(accumulator);
         return new Stream<R>(params, new ObjScanIdentity<T, R>(iterator, identity, accumulator));
     }
@@ -1218,7 +1535,8 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to take elements
      * @return the new stream
      */
-    public Stream<T> takeWhile(final Predicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> takeWhile(@NotNull final Predicate<? super T> predicate) {
         return new Stream<T>(params, new ObjTakeWhile<T>(iterator, predicate));
     }
 
@@ -1240,7 +1558,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> takeWhileIndexed(IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> takeWhileIndexed(@NotNull IndexedPredicate<? super T> predicate) {
         return takeWhileIndexed(0, 1, predicate);
     }
 
@@ -1266,7 +1585,9 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> takeWhileIndexed(int from, int step, IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> takeWhileIndexed(int from, int step,
+                                      @NotNull IndexedPredicate<? super T> predicate) {
         return new Stream<T>(params, new ObjTakeWhileIndexed<T>(
                 new IndexedIterator<T>(from, step, iterator),
                 predicate));
@@ -1290,7 +1611,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> takeUntil(final Predicate<? super T> stopPredicate) {
+    @NotNull
+    public Stream<T> takeUntil(@NotNull final Predicate<? super T> stopPredicate) {
         return new Stream<T>(params, new ObjTakeUntil<T>(iterator, stopPredicate));
     }
 
@@ -1314,7 +1636,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> takeUntilIndexed(IndexedPredicate<? super T> stopPredicate) {
+    @NotNull
+    public Stream<T> takeUntilIndexed(@NotNull IndexedPredicate<? super T> stopPredicate) {
         return takeUntilIndexed(0, 1, stopPredicate);
     }
 
@@ -1342,7 +1665,9 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> takeUntilIndexed(int from, int step, IndexedPredicate<? super T> stopPredicate) {
+    @NotNull
+    public Stream<T> takeUntilIndexed(int from, int step,
+                                      @NotNull IndexedPredicate<? super T> stopPredicate) {
         return new Stream<T>(params, new ObjTakeUntilIndexed<T>(
                 new IndexedIterator<T>(from, step, iterator),
                 stopPredicate));
@@ -1363,7 +1688,8 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to drop elements
      * @return the new stream
      */
-    public Stream<T> dropWhile(final Predicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> dropWhile(@NotNull final Predicate<? super T> predicate) {
         return new Stream<T>(params, new ObjDropWhile<T>(iterator, predicate));
     }
 
@@ -1385,7 +1711,8 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> dropWhileIndexed(IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> dropWhileIndexed(@NotNull IndexedPredicate<? super T> predicate) {
         return dropWhileIndexed(0, 1, predicate);
     }
 
@@ -1411,7 +1738,9 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @since 1.1.6
      */
-    public Stream<T> dropWhileIndexed(int from, int step, IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Stream<T> dropWhileIndexed(int from, int step,
+                                      @NotNull IndexedPredicate<? super T> predicate) {
         return new Stream<T>(params, new ObjDropWhileIndexed<T>(
                 new IndexedIterator<T>(from, step, iterator),
                 predicate));
@@ -1437,6 +1766,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws IllegalArgumentException if {@code maxSize} is negative
      */
+    @NotNull
     public Stream<T> limit(final long maxSize) {
         if (maxSize < 0) {
             throw new IllegalArgumentException("maxSize cannot be negative");
@@ -1468,6 +1798,7 @@ public class Stream<T> implements Closeable {
      * @return the new stream
      * @throws IllegalArgumentException if {@code n} is negative
      */
+    @NotNull
     public Stream<T> skip(final long n) {
         if (n < 0) throw new IllegalArgumentException("n cannot be negative");
         if (n == 0) return this;
@@ -1481,7 +1812,7 @@ public class Stream<T> implements Closeable {
      *
      * @param action  the action to be performed on each element
      */
-    public void forEach(final Consumer<? super T> action) {
+    public void forEach(@NotNull final Consumer<? super T> action) {
         while (iterator.hasNext()) {
             action.accept(iterator.next());
         }
@@ -1495,7 +1826,7 @@ public class Stream<T> implements Closeable {
      * @param action  the action to be performed on each element
      * @since 1.1.6
      */
-    public void forEachIndexed(IndexedConsumer<? super T> action) {
+    public void forEachIndexed(@NotNull IndexedConsumer<? super T> action) {
         forEachIndexed(0, 1, action);
     }
 
@@ -1509,7 +1840,8 @@ public class Stream<T> implements Closeable {
      * @param action  the action to be performed on each element
      * @since 1.1.6
      */
-    public void forEachIndexed(int from, int step, IndexedConsumer<? super T> action) {
+    public void forEachIndexed(int from, int step,
+                               @NotNull IndexedConsumer<? super T> action) {
         int index = from;
         while (iterator.hasNext()) {
             action.accept(index, iterator.next());
@@ -1535,7 +1867,9 @@ public class Stream<T> implements Closeable {
      * @param accumulator  the accumulation function
      * @return the result of the reduction
      */
-    public <R> R reduce(R identity, BiFunction<? super R, ? super T, ? extends R> accumulator) {
+    @Nullable
+    public <R> R reduce(@Nullable R identity,
+                        @NotNull BiFunction<? super R, ? super T, ? extends R> accumulator) {
         R result = identity;
         while (iterator.hasNext()) {
             final T value = iterator.next();
@@ -1565,7 +1899,9 @@ public class Stream<T> implements Closeable {
      * @return the result of the reduction
      * @since 1.1.6
      */
-    public <R> R reduceIndexed(R identity, IndexedBiFunction<? super R, ? super T, ? extends R> accumulator) {
+    @Nullable
+    public <R> R reduceIndexed(@Nullable R identity,
+                               @NotNull IndexedBiFunction<? super R, ? super T, ? extends R> accumulator) {
         return reduceIndexed(0, 1, identity, accumulator);
     }
 
@@ -1594,8 +1930,10 @@ public class Stream<T> implements Closeable {
      * @return the result of the reduction
      * @since 1.1.6
      */
-    public <R> R reduceIndexed(int from, int step, R identity,
-            IndexedBiFunction<? super R, ? super T, ? extends R> accumulator) {
+    @Nullable
+    public <R> R reduceIndexed(int from, int step,
+                               @Nullable R identity,
+                               @NotNull IndexedBiFunction<? super R, ? super T, ? extends R> accumulator) {
         R result = identity;
         int index = from;
         while (iterator.hasNext()) {
@@ -1615,7 +1953,8 @@ public class Stream<T> implements Closeable {
      * @return the result of the reduction
      * @see #reduce(java.lang.Object, com.annimon.stream.function.BiFunction)
      */
-    public Optional<T> reduce(BiFunction<T, T, T> accumulator) {
+    @NotNull
+    public Optional<T> reduce(@NotNull BiFunction<T, T, T> accumulator) {
         boolean foundAny = false;
         T result = null;
         while (iterator.hasNext()) {
@@ -1638,9 +1977,11 @@ public class Stream<T> implements Closeable {
      * @return the result of collect elements
      * @see #toArray(com.annimon.stream.function.IntFunction)
      */
+    @NotNull
     public Object[] toArray() {
         return toArray(new IntFunction<Object[]>() {
 
+            @NotNull
             @Override
             public Object[] apply(int value) {
                 return new Object[value];
@@ -1657,7 +1998,8 @@ public class Stream<T> implements Closeable {
      * @param generator  the array constructor reference that accommodates future array of assigned size
      * @return the result of collect elements
      */
-    public <R> R[] toArray(IntFunction<R[]> generator) {
+    @NotNull
+    public <R> R[] toArray(@NotNull IntFunction<R[]> generator) {
         return Operators.toArray(iterator, generator);
     }
 
@@ -1673,6 +2015,7 @@ public class Stream<T> implements Closeable {
      * @since 1.1.5
      * @see Collectors#toList()
      */
+    @NotNull
     public List<T> toList() {
         final List<T> result = new ArrayList<T>();
         while (iterator.hasNext()) {
@@ -1692,7 +2035,9 @@ public class Stream<T> implements Closeable {
      * @return the result of collect elements
      * @see #collect(com.annimon.stream.Collector)
      */
-    public <R> R collect(Supplier<R> supplier, BiConsumer<R, ? super T> accumulator) {
+    @Nullable
+    public <R> R collect(@NotNull Supplier<R> supplier,
+                         @NotNull BiConsumer<R, ? super T> accumulator) {
         final R result = supplier.get();
         while (iterator.hasNext()) {
             final T value = iterator.next();
@@ -1712,15 +2057,14 @@ public class Stream<T> implements Closeable {
      * @return the result of collect elements
      * @see #collect(com.annimon.stream.function.Supplier, com.annimon.stream.function.BiConsumer)
      */
-    public <R, A> R collect(Collector<? super T, A, R> collector) {
+    @Nullable
+    public <R, A> R collect(@NotNull Collector<? super T, A, R> collector) {
         A container = collector.supplier().get();
         while (iterator.hasNext()) {
             final T value = iterator.next();
             collector.accumulator().accept(container, value);
         }
-        if (collector.finisher() != null)
-            return collector.finisher().apply(container);
-        return Collectors.<A, R>castIdentity().apply(container);
+        return collector.finisher().apply(container);
     }
 
     /**
@@ -1738,7 +2082,8 @@ public class Stream<T> implements Closeable {
      * @param comparator  the {@code Comparator} to compare elements
      * @return the minimum element
      */
-    public Optional<T> min(Comparator<? super T> comparator) {
+    @NotNull
+    public Optional<T> min(@NotNull Comparator<? super T> comparator) {
         return reduce(BinaryOperator.Util.<T>minBy(comparator));
     }
 
@@ -1757,7 +2102,8 @@ public class Stream<T> implements Closeable {
      * @param comparator  the {@code Comparator} to compare elements
      * @return the maximum element
      */
-    public Optional<T> max(Comparator<? super T> comparator) {
+    @NotNull
+    public Optional<T> max(@NotNull Comparator<? super T> comparator) {
         return reduce(BinaryOperator.Util.<T>maxBy(comparator));
     }
 
@@ -1796,7 +2142,7 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to match elements
      * @return {@code true} if any elements match the given predicate, otherwise {@code false}
      */
-    public boolean anyMatch(Predicate<? super T> predicate) {
+    public boolean anyMatch(@NotNull Predicate<? super T> predicate) {
         return match(predicate, MATCH_ANY);
     }
 
@@ -1819,7 +2165,7 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to match elements
      * @return {@code true} if all elements match the given predicate, otherwise {@code false}
      */
-    public boolean allMatch(Predicate<? super T> predicate) {
+    public boolean allMatch(@NotNull Predicate<? super T> predicate) {
         return match(predicate, MATCH_ALL);
     }
 
@@ -1842,7 +2188,7 @@ public class Stream<T> implements Closeable {
      * @param predicate  the predicate used to match elements
      * @return {@code true} if no elements match the given predicate, otherwise {@code false}
      */
-    public boolean noneMatch(Predicate<? super T> predicate) {
+    public boolean noneMatch(@NotNull Predicate<? super T> predicate) {
         return match(predicate, MATCH_NONE);
     }
 
@@ -1864,7 +2210,8 @@ public class Stream<T> implements Closeable {
      *         or {@code Optional.empty()} if stream is empty or no value was found.
      * @since 1.1.8
      */
-    public Optional<IntPair<T>> findIndexed(IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Optional<IntPair<T>> findIndexed(@NotNull IndexedPredicate<? super T> predicate) {
         return findIndexed(0, 1, predicate);
     }
 
@@ -1890,8 +2237,10 @@ public class Stream<T> implements Closeable {
      *         or {@code Optional.empty()} if stream is empty or no value was found.
      * @since 1.1.8
      */
-    public Optional<IntPair<T>> findIndexed(int from, int step,
-                                            IndexedPredicate<? super T> predicate) {
+    @NotNull
+    public Optional<IntPair<T>> findIndexed(
+            int from, int step,
+            @NotNull IndexedPredicate<? super T> predicate) {
         int index = from;
         while (iterator.hasNext()) {
             final T value = iterator.next();
@@ -1912,11 +2261,30 @@ public class Stream<T> implements Closeable {
      * @return an {@code Optional} with the first element
      *         or {@code Optional.empty()} if stream is empty
      */
+    @NotNull
     public Optional<T> findFirst() {
         if (iterator.hasNext()) {
             return Optional.of(iterator.next());
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns the first element if stream is not empty,
+     * otherwise returns {@code other}.
+     *
+     * <p>This is a short-circuiting terminal operation.
+     *
+     * @param other  the value to be returned if stream is empty
+     * @return first element or {@code other} if stream is empty
+     * @since 1.2.2
+     */
+    @Nullable
+    public T findFirstOrElse(@Nullable T other) {
+        if (iterator.hasNext()) {
+            return iterator.next();
+        }
+        return other;
     }
 
     /**
@@ -1929,6 +2297,7 @@ public class Stream<T> implements Closeable {
      *         or {@code Optional.empty()} if the stream is empty
      * @since 1.1.8
      */
+    @NotNull
     public Optional<T> findLast() {
         return reduce(new BinaryOperator<T>() {
             @Override
@@ -1962,6 +2331,7 @@ public class Stream<T> implements Closeable {
      * @throws IllegalStateException if stream contains more than one element
      * @since 1.1.2
      */
+    @Nullable
     public T single() {
         if (iterator.hasNext()) {
             T singleCandidate = iterator.next();
@@ -1998,6 +2368,7 @@ public class Stream<T> implements Closeable {
      * @throws IllegalStateException if stream contains more than one element
      * @since 1.1.2
      */
+    @NotNull
     public Optional<T> findSingle() {
         if (iterator.hasNext()) {
             T singleCandidate = iterator.next();
@@ -2020,17 +2391,10 @@ public class Stream<T> implements Closeable {
      * @return the new stream with the close handler
      * @since 1.1.8
      */
-    public Stream<T> onClose(final Runnable closeHandler) {
+    @NotNull
+    public Stream<T> onClose(@NotNull final Runnable closeHandler) {
         Objects.requireNonNull(closeHandler);
-        final Params newParams;
-        if (params == null) {
-            newParams = new Params();
-            newParams.closeHandler = closeHandler;
-        } else {
-            newParams = params;
-            final Runnable firstHandler = newParams.closeHandler;
-            newParams.closeHandler = Compose.runnables(firstHandler, closeHandler);
-        }
+        final Params newParams = Params.wrapWithCloseHandler(params, closeHandler);
         return new Stream<T>(newParams, iterator);
     }
 
@@ -2053,7 +2417,7 @@ public class Stream<T> implements Closeable {
     private static final int MATCH_ALL = 1;
     private static final int MATCH_NONE = 2;
 
-    private boolean match(Predicate<? super T> predicate, int matchKind) {
+    private boolean match(@NotNull Predicate<? super T> predicate, int matchKind) {
         final boolean kindAny = (matchKind == MATCH_ANY);
         final boolean kindAll = (matchKind == MATCH_ALL);
 

@@ -10,13 +10,14 @@ import com.annimon.stream.function.IntToLongFunction;
 import com.annimon.stream.function.IntUnaryOperator;
 import com.annimon.stream.function.Supplier;
 import java.util.NoSuchElementException;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A container object which may or may not contain a {@code int} value.
  * If a value is present, {@code isPresent()} will return {@code true} and
  * {@code getAsInt()} will return the value.
  */
-@SuppressWarnings("WeakerAccess")
 public final class OptionalInt {
     /**
      * Common instance for {@code empty()}.
@@ -43,6 +44,7 @@ public final class OptionalInt {
      *
      * @return an empty {@code OptionalInt}
      */
+    @NotNull
     public static OptionalInt empty() {
         return EMPTY;
     }
@@ -63,6 +65,7 @@ public final class OptionalInt {
      * @param value the value to be present
      * @return an {@code OptionalInt} with the value present
      */
+    @NotNull
     public static OptionalInt of(int value) {
         return new OptionalInt(value);
     }
@@ -74,7 +77,8 @@ public final class OptionalInt {
      * @return an {@code OptionalInt}
      * @since 1.2.1
      */
-    public static OptionalInt ofNullable(Integer value) {
+    @NotNull
+    public static OptionalInt ofNullable(@Nullable Integer value) {
         return value == null ? EMPTY : new OptionalInt(value);
     }
 
@@ -103,13 +107,23 @@ public final class OptionalInt {
     }
 
     /**
+     * Checks the value is not present.
+     *
+     * @return {@code true} if a value is not present, {@code false} otherwise
+     * @since 1.2.1
+     */
+    public boolean isEmpty() {
+        return !isPresent;
+    }
+
+    /**
      * Invokes consumer function with value if present, otherwise does nothing.
      *
      * @param consumer block to be executed if a value is present
      * @throws NullPointerException if value is present and {@code consumer} is
      *         null
      */
-    public void ifPresent(IntConsumer consumer) {
+    public void ifPresent(@NotNull IntConsumer consumer) {
         if (isPresent)
             consumer.accept(value);
     }
@@ -124,7 +138,7 @@ public final class OptionalInt {
      *         or no value is present and the given empty-based action is null.
      * @since 1.1.4
      */
-    public void ifPresentOrElse(IntConsumer consumer, Runnable emptyAction) {
+    public void ifPresentOrElse(@NotNull IntConsumer consumer, @NotNull Runnable emptyAction) {
         if (isPresent) {
             consumer.accept(value);
         } else {
@@ -141,7 +155,8 @@ public final class OptionalInt {
      * @see #ifPresent(com.annimon.stream.function.IntConsumer)
      * @since 1.1.2
      */
-    public OptionalInt executeIfPresent(IntConsumer consumer) {
+    @NotNull
+    public OptionalInt executeIfPresent(@NotNull IntConsumer consumer) {
         ifPresent(consumer);
         return this;
     }
@@ -153,7 +168,8 @@ public final class OptionalInt {
      * @return this {@code OptionalInt}
      * @since 1.1.2
      */
-    public OptionalInt executeIfAbsent(Runnable action) {
+    @NotNull
+    public OptionalInt executeIfAbsent(@NotNull Runnable action) {
         if (!isPresent())
             action.run();
         return this;
@@ -168,7 +184,8 @@ public final class OptionalInt {
      * @throws NullPointerException if {@code function} is null
      * @since 1.1.9
      */
-    public <R> R custom(Function<OptionalInt, R> function) {
+    @Nullable
+    public <R> R custom(@NotNull Function<OptionalInt, R> function) {
         Objects.requireNonNull(function);
         return function.apply(this);
     }
@@ -181,7 +198,8 @@ public final class OptionalInt {
      *         otherwise an empty {@code OptionalInt}
      * @since 1.1.4
      */
-    public OptionalInt filter(IntPredicate predicate) {
+    @NotNull
+    public OptionalInt filter(@NotNull IntPredicate predicate) {
         if (!isPresent()) return this;
         return predicate.test(value) ? this : OptionalInt.empty();
     }
@@ -194,7 +212,8 @@ public final class OptionalInt {
      *              otherwise an empty {@code OptionalInt}
      * @since 1.1.9
      */
-    public OptionalInt filterNot(IntPredicate predicate) {
+    @NotNull
+    public OptionalInt filterNot(@NotNull IntPredicate predicate) {
         return filter(IntPredicate.Util.negate(predicate));
     }
 
@@ -208,7 +227,8 @@ public final class OptionalInt {
      *         {@code mapper} is {@code null}
      * @since 1.1.3
      */
-    public OptionalInt map(IntUnaryOperator mapper) {
+    @NotNull
+    public OptionalInt map(@NotNull IntUnaryOperator mapper) {
         if (!isPresent()) return empty();
         return OptionalInt.of(mapper.applyAsInt(value));
     }
@@ -224,7 +244,8 @@ public final class OptionalInt {
      *         {@code mapper} is {@code null}
      * @since 1.1.3
      */
-    public <U> Optional<U> mapToObj(IntFunction<U> mapper) {
+    @NotNull
+    public <U> Optional<U> mapToObj(@NotNull IntFunction<U> mapper) {
         if (!isPresent()) return Optional.empty();
         return Optional.ofNullable(mapper.apply(value));
     }
@@ -239,7 +260,8 @@ public final class OptionalInt {
      *         {@code mapper} is {@code null}
      * @since 1.1.4
      */
-    public OptionalLong mapToLong(IntToLongFunction mapper) {
+    @NotNull
+    public OptionalLong mapToLong(@NotNull IntToLongFunction mapper) {
         if (!isPresent()) return OptionalLong.empty();
         return OptionalLong.of(mapper.applyAsLong(value));
     }
@@ -254,7 +276,8 @@ public final class OptionalInt {
      *         {@code mapper} is {@code null}
      * @since 1.1.4
      */
-    public OptionalDouble mapToDouble(IntToDoubleFunction mapper) {
+    @NotNull
+    public OptionalDouble mapToDouble(@NotNull IntToDoubleFunction mapper) {
         if (!isPresent()) return OptionalDouble.empty();
         return OptionalDouble.of(mapper.applyAsDouble(value));
     }
@@ -264,6 +287,7 @@ public final class OptionalInt {
      *
      * @return the optional value as an {@code IntStream}
      */
+    @NotNull
     public IntStream stream() {
         if (!isPresent()) return IntStream.empty();
         return IntStream.of(value);
@@ -279,7 +303,8 @@ public final class OptionalInt {
      * @throws NullPointerException if value is not present and
      *         {@code supplier} or value produced by it is {@code null}
      */
-    public OptionalInt or(Supplier<OptionalInt> supplier) {
+    @NotNull
+    public OptionalInt or(@NotNull Supplier<OptionalInt> supplier) {
         if (isPresent()) return this;
         Objects.requireNonNull(supplier);
         return Objects.requireNonNull(supplier.get());
@@ -305,7 +330,7 @@ public final class OptionalInt {
      * @throws NullPointerException if value is not present and {@code other} is
      *         null
      */
-    public int orElseGet(IntSupplier other) {
+    public int orElseGet(@NotNull IntSupplier other) {
         return isPresent ? value : other.getAsInt();
     }
 
@@ -331,7 +356,7 @@ public final class OptionalInt {
      * @return inner value if present
      * @throws X if inner value is not present
      */
-    public <X extends Throwable> int orElseThrow(Supplier<X> exceptionSupplier) throws X {
+    public <X extends Throwable> int orElseThrow(@NotNull Supplier<X> exceptionSupplier) throws X {
         if (isPresent) {
             return value;
         } else {
@@ -385,6 +410,7 @@ public final class OptionalInt {
      *
      * @return the string representation of this instance
      */
+    @NotNull
     @Override
     public String toString() {
         return isPresent

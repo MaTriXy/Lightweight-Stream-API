@@ -19,15 +19,20 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalMatcher.hasValue;
 import static com.annimon.stream.test.hamcrest.OptionalMatcher.isEmpty;
 import static com.annimon.stream.test.hamcrest.OptionalMatcher.isPresent;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.closeTo;
-import static org.junit.Assert.*;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.fail;
 
 /**
  * Tests {@code Optional}.
  *
  * @see com.annimon.stream.Optional
  */
+@SuppressWarnings("ConstantConditions")
 public final class OptionalTest {
 
     private static Student student;
@@ -88,8 +93,9 @@ public final class OptionalTest {
         });
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testIfPresentOrElseWhenValueAbsent() {
+        final Integer[] data = { 0 };
         Optional.<Integer>empty().ifPresentOrElse(new Consumer<Integer>() {
             @Override
             public void accept(Integer value) {
@@ -98,9 +104,10 @@ public final class OptionalTest {
         }, new Runnable() {
             @Override
             public void run() {
-                throw new RuntimeException();
+                data[0] = 1;
             }
         });
+        assertThat(data[0], is(1));
     }
 
     @Test
@@ -167,15 +174,17 @@ public final class OptionalTest {
                 });
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testExecuteIfAbsent() {
+        final Integer[] data = { 0 };
         Optional.empty()
                 .executeIfAbsent(new Runnable() {
                     @Override
                     public void run() {
-                        throw new RuntimeException();
+                        data[0] = 1;
                     }
                 });
+        assertThat(data[0], is(1));
     }
 
     @Test
@@ -223,6 +232,14 @@ public final class OptionalTest {
     @Test
     public void testFilter() {
         Optional<Integer> result = Optional.of(10)
+                .filter(Predicate.Util.negate(Functions.remainder(2)));
+
+        assertThat(result, isEmpty());
+    }
+
+    @Test
+    public void testFilterOnEmptyOptional() {
+        Optional<Integer> result = Optional.<Integer>empty()
                 .filter(Predicate.Util.negate(Functions.remainder(2)));
 
         assertThat(result, isEmpty());
@@ -451,7 +468,7 @@ public final class OptionalTest {
 
     @Test
     public void testOrElseWithPresentValue() {
-        int value = Optional.<Integer>empty().orElse(42);
+        int value = Optional.of(42).orElse(32);
         assertEquals(42, value);
     }
 
@@ -462,6 +479,17 @@ public final class OptionalTest {
 
     @Test
     public void testOrElseGet() {
+        int value = Optional.of(42).orElseGet(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                return 32;
+            }
+        });
+        assertEquals(42, value);
+    }
+
+    @Test
+    public void testOrElseGetOnEmptyOptional() {
         int value = Optional.<Integer>empty().orElseGet(new Supplier<Integer>() {
             @Override
             public Integer get() {
@@ -487,10 +515,20 @@ public final class OptionalTest {
         Optional.empty().orElseThrow();
     }
 
-    @Test(expected = ArithmeticException.class)
-    public void testOrElseThrow() {
-        Optional.empty().orElseThrow(new Supplier<RuntimeException>() {
+    @Test
+    public void testOrElseThrowWithCustomSupplier() {
+        int value = Optional.of(10).orElseThrow(new Supplier<RuntimeException>() {
+            @Override
+            public RuntimeException get() {
+                return new ArithmeticException();
+            }
+        });
+        assertEquals(10, value);
+    }
 
+    @Test(expected = ArithmeticException.class)
+    public void testOrElseThrowWithCustomSupplierOnEmptyOptional() {
+        Optional.empty().orElseThrow(new Supplier<RuntimeException>() {
             @Override
             public RuntimeException get() {
                 return new ArithmeticException();
@@ -524,12 +562,14 @@ public final class OptionalTest {
         assertEquals(s1, s3);
     }
 
+    @SuppressWarnings({"EqualsBetweenInconvertibleTypes", "SimplifiableAssertion"})
     @Test
     public void testEqualsWithDifferentTypes() {
         final Optional<Integer> optInt = Optional.of(10);
         assertFalse(optInt.equals(10));
     }
 
+    @SuppressWarnings("AssertBetweenInconvertibleTypes")
     @Test
     public void testEqualsWithDifferentGenericTypes() {
         final Optional<Student> s1 = Optional.of(student);

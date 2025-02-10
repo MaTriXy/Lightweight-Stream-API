@@ -14,12 +14,16 @@ import org.junit.Test;
 import static com.annimon.stream.test.hamcrest.OptionalLongMatcher.hasValue;
 import static com.annimon.stream.test.hamcrest.OptionalLongMatcher.isEmpty;
 import static com.annimon.stream.test.hamcrest.OptionalLongMatcher.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for {@link OptionalLong}
  */
+@SuppressWarnings("ConstantConditions")
 public class OptionalLongTest {
 
     @Test
@@ -38,6 +42,7 @@ public class OptionalLongTest {
         assertThat(OptionalLong.ofNullable(null), isEmpty());
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test(expected = NoSuchElementException.class)
     public void testGetOnEmptyOptional() {
         OptionalLong.empty().getAsLong();
@@ -85,8 +90,9 @@ public class OptionalLongTest {
         });
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testIfPresentOrElseWhenValueAbsent() {
+        final Integer[] data = { 0 };
         OptionalLong.empty().ifPresentOrElse(new LongConsumer() {
             @Override
             public void accept(long value) {
@@ -95,9 +101,10 @@ public class OptionalLongTest {
         }, new Runnable() {
             @Override
             public void run() {
-                throw new RuntimeException();
+                data[0] = 1;
             }
         });
+        assertThat(data[0], is(1));
     }
 
     @Test
@@ -164,15 +171,17 @@ public class OptionalLongTest {
                 });
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void testExecuteIfAbsent() {
+        final Integer[] data = { 0 };
         OptionalLong.empty()
                 .executeIfAbsent(new Runnable() {
                     @Override
                     public void run() {
-                        throw new RuntimeException();
+                        data[0] = 1;
                     }
                 });
+        assertThat(data[0], is(1));
     }
 
     @Test
@@ -386,6 +395,7 @@ public class OptionalLongTest {
         assertEquals(10, value);
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test(expected = NoSuchElementException.class)
     public void testOrElseThrowOnEmptyOptional() {
         OptionalLong.empty().orElseThrow();
@@ -415,7 +425,7 @@ public class OptionalLongTest {
         }));
     }
 
-    @SuppressWarnings("EqualsBetweenInconvertibleTypes")
+    @SuppressWarnings("AssertBetweenInconvertibleTypes")
     @Test
     public void testEquals() {
         assertEquals(OptionalLong.empty(), OptionalLong.empty());
